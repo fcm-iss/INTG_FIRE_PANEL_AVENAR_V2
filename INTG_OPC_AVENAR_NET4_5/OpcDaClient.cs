@@ -17,7 +17,7 @@ namespace INTG_OPC
         // ══════════════════════════════════════════════════════
 
         private Opc.Da.Server _server;
-        private Subscription _group;
+        private Subscription _subscription;
         private bool _disposed;
 
         private static readonly BrowseFilters FilterAll = new BrowseFilters
@@ -27,6 +27,16 @@ namespace INTG_OPC
 
         private static readonly BrowseFilters FilterItem = new BrowseFilters
         { BrowseFilter = browseFilter.item };
+
+        // ══════════════════════════════════════════════════════
+        // Eventos públicos
+        // ══════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Se dispara cada vez que el servidor OPC detecta un cambio
+        /// en un ítem del panel (valor o quality).
+        /// </summary>
+        public event Action<ItemValueResult[]> PanelChanged;
 
         // ══════════════════════════════════════════════════════
         // Propiedades públicas de solo lectura
@@ -160,7 +170,7 @@ namespace INTG_OPC
             try
             {
                 var groupState = BuildGroupState(groupName, updateRateMs);
-                _group = (Subscription)_server.CreateSubscription(groupState);
+                _subscription = (Subscription)_server.CreateSubscription(groupState);
 
                 var items = DiscoverItems();
 
@@ -170,7 +180,8 @@ namespace INTG_OPC
                     return false;
                 }
 
-                _group.AddItems(items);
+                _subscription.AddItems(items);
+                _subscription.DataChanged += (s, r, values) => PanelChanged?.Invoke(values);
                 Console.WriteLine($"[OPC] Grupo '{groupName}' inicializado " +
                                   $"con {items.Length} ítem(s).");
                 return true;
@@ -199,14 +210,14 @@ namespace INTG_OPC
         {
             ThrowIfNotConnected();
 
-            if (_group == null)
+            if (_subscription == null)
                 throw new InvalidOperationException(
                     "El grupo no está inicializado. " +
                     "Llama InitializeSubscriptionGroup() primero.");
 
             Console.WriteLine("[OPC] Iniciando lectura asíncrona...");
-            _group.Read(
-                _group.Items,
+            _subscription.Read(
+                _subscription.Items,
                 100,
                 new ReadCompleteEventHandler(OnReadComplete),
                 out _);
@@ -306,14 +317,14 @@ namespace INTG_OPC
 
         private void ReleaseGroup()
         {
-            if (_group == null) return;
+            if (_subscription == null) return;
 
             try
             {
                 if (_server != null && _server.IsConnected)
-                    _server.CancelSubscription(_group);
+                    _server.CancelSubscription(_subscription);
 
-                _group.Dispose();
+                _subscription.Dispose();
                 Console.WriteLine("[OPC] Grupo de suscripción liberado.");
             }
             catch (Exception ex)
@@ -322,7 +333,7 @@ namespace INTG_OPC
             }
             finally
             {
-                _group = null;
+                _subscription = null;
             }
         }
 

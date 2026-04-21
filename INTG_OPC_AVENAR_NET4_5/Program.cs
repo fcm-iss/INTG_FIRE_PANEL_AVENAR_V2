@@ -10,12 +10,6 @@ namespace INTG_OPC_AVENAR_NET4_5
     {
         static void Main(string[] args)
         {
-            //seleciona la url del servidor OPC desde la configuracion en App.config
-            //var opcServerUrl = ConfigurationManager.AppSettings["opcda_url"];
-
-
-            // 'using' garantiza Dispose() automático al salir del bloque,
-            // incluso si ocurre una excepción — libera conexión y recursos COM.
             using (var opcClient = new OpcClient())
             {
                 var selectedUrl = DiscoverAndSelectOpcServer(opcClient);
@@ -35,13 +29,24 @@ namespace INTG_OPC_AVENAR_NET4_5
                     return;
                 }
 
+                opcClient.PanelChanged += OnPanelChanged;
                 opcClient.ReadItems();
                 Console.WriteLine("\n==================================================");
                 Console.WriteLine("[APP] Presiona cualquier tecla para desconectar...");
                 Console.WriteLine("==================================================\n");
                 Console.ReadKey();
             }
-            // Disconnect() y Dispose() se llaman automáticamente aquí
+        }
+
+        private static void OnPanelChanged(Opc.Da.ItemValueResult[] values)
+        {
+            foreach (var r in values)
+            {
+                if (r.Quality.QualityBits == Opc.Da.qualityBits.bad)
+                    Console.WriteLine($"[PANEL] Desconectado — ítem: {r.ItemName}");
+                else
+                    Console.WriteLine($"[PANEL] Cambio: {r.ItemName} = {r.Value}");
+            }
         }
 
         /// <summary>
