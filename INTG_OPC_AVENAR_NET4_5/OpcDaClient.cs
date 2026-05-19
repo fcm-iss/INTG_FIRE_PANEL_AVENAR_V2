@@ -1,8 +1,10 @@
-﻿using System;
+﻿using Opc;
+using Opc.Da;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using Opc;
-using Opc.Da;
+using System.Security.Cryptography;
+using System.Xml.Linq;
 
 namespace INTG_OPC
 {
@@ -224,6 +226,95 @@ namespace INTG_OPC
         }
 
         // ══════════════════════════════════════════════════════
+        // Escritura
+        // ══════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Escribe un valor en un ítem OPC DA del servidor.
+        /// </summary>
+        /// <param name="itemName">Nombre completo del ítem (ej: "FPA5000.Zone1.Command")</param>
+        /// <param name="value">Valor a escribir (tipo debe ser compatible con el ítem)</param>
+        /// <returns>true si la escritura fue exitosa.</returns>
+        public bool Write(string itemName, object value)
+        {
+            ThrowIfNotConnected();
+
+            if (string.IsNullOrWhiteSpace(itemName))
+                throw new ArgumentException("El nombre del ítem no puede estar vacío.", nameof(itemName));
+
+            if (_subscription == null)
+                throw new InvalidOperationException(
+                    "El grupo no está inicializado. Llama InitializeSubscriptionGroup() primero.");
+
+            // Busca el ítem en la suscripción activa para obtener su ServerHandle
+            var subscriptionItem = _subscription.Items
+                .FirstOrDefault(i => i.ItemName == itemName);
+
+            if (subscriptionItem == null)
+            {
+                Console.WriteLine($"[OPC] Write: ítem '{itemName}' no encontrado en la suscripción.");
+                return false;
+            }
+
+            try
+            {
+                var itemValue = new ItemValue
+                {
+                    ServerHandle = subscriptionItem.ServerHandle,
+                    ItemName     = subscriptionItem.ItemName,
+                    Value        = value
+                };
+
+                var result = _subscription.Write(new[] { itemValue });
+                Console.WriteLine($"[OPC] Write OK: {itemName} = {value}");
+                Console.WriteLine($"[OPC] result: {result}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al escribir '{itemName}': {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Escribe múltiples valores en el servidor en una sola llamada.
+        /// </summary>
+        /// <param name="itemValues">Array de ItemValue con ItemName y Value ya asignados.</param>
+        /// <returns>Array de resultados por ítem, o null si ocurrió una excepción.</returns>
+        public IdentifiedResult[] WriteItems(ItemValue[] itemValues)
+        {
+            ThrowIfNotConnected();
+
+            if (itemValues == null || itemValues.Length == 0)
+                throw new ArgumentException(
+                    "Debe proporcionar al menos un ítem para escribir.", nameof(itemValues));
+
+            try
+            {
+                var results = _server.Write(itemValues);
+
+                if (results != null)
+                {
+                    foreach (var r in results)
+                    {
+                        var status = r.ResultID.Succeeded() ? "OK  " : "FAIL";
+                        Console.WriteLine($"[OPC] Write {status}: {r.ItemName} — {r.ResultID}");
+                    }
+                }
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al escribir ítems: {ex.Message}");
+                return null;
+            }
+        }
+                
+
+
+        // ══════════════════════════════════════════════════════
         // IDisposable
         // ══════════════════════════════════════════════════════
 
@@ -352,205 +443,68 @@ namespace INTG_OPC
                 Console.WriteLine($"  {result.ItemName} = {result.Value}");
             Console.WriteLine();
         }
+
+
+        //----------------------------------------------------------------
+        public void PrintItemProperties(string itemName, string indent)
+        {
+            try
+            {
+                var results = _server.GetProperties(new[] { new ItemIdentifier(itemName) }, null, true);
+                if (results == null || results.Length == 0) return;
+
+                foreach (ItemProperty prop in results[0])
+                {
+                    if (prop.ResultID.Succeeded())
+                    {
+                        string desc = string.IsNullOrEmpty(prop.Description) ? $"Property {prop.ID.Code}" : prop.Description;
+                        string value = prop.Value?.ToString() ?? "(null)";
+                        Console.WriteLine($"{indent}    [{prop.ID.Code,5}] {desc,-30} = {value}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"{indent}    (Error al leer propiedades: {ex.Message})");
+            }
+        }
+
+        public Dictionary<string, string> GetItemProperties(string itemName, int NumPropertie)
+        {
+            try
+            {
+                var id= new PropertyID(NumPropertie);
+                var results = _server.GetProperties(new[] { new ItemIdentifier(itemName) }, null, true);
+                if (results == null || results.Length == 0) return null;
+
+
+                var prop = results[0]
+                      .Cast<ItemProperty>()
+                      .FirstOrDefault(p => p.ID.Code == NumPropertie);
+
+
+
+                if (prop?.Value is string raw)
+                {
+                    if (raw.TrimStart().StartsWith("<"))
+                    {
+                        // Es XML con comandos → parsear
+                        var doc = XDocument.Parse(raw);
+                        XNamespace ns = "file:///S3K/Proxyverwalter";
+                        var commands = doc.Descendants(ns + "Command")
+                                          .ToDictionary(e => e.Attribute("Name").Value, e => e.ToString());
+                        return commands;
+                    }
+                    return prop != null ? new Dictionary<string, string> { { prop.Description ?? $"Property {prop.ID.Code}", prop.Value?.ToString() ?? "(null)" } } : null;
+                }
+                return null;
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"   (Error al leer propiedades: {ex.Message})");
+                return null;
+            }
+        }
     }
 }
-
-
-
-//using Opc;
-//using Opc.Da;
-//using System;
-//using System.Collections.Generic;
-////using System.Collections.Generic;
-////using System.Configuration;
-////using System.Threading;
-
-//namespace INTG_OPC
-//{
-//    public class OpcDaConnector : IDisposable
-//    {
-//        private bool _disposed;
-
-//        public Opc.Da.Server OpcDaServer = null;
-//        static Opc.IRequest request;
-//        //public OpcCom.Factory fact = new OpcCom.Factory();
-//        //public SubscriptionState groupState = new Opc.Da.SubscriptionState();
-//        static Subscription group;
-
-//        static ItemIdentifier itemId = null;
-//        static BrowseFilters filter_all = new BrowseFilters() { BrowseFilter = browseFilter.all };
-//        static BrowseFilters filter_branch = new BrowseFilters() { BrowseFilter = browseFilter.branch };
-//        static BrowsePosition position;
-
-//        static Item[] items;
-//        static List<Item> item_list = new List<Item>();
-
-//        //public  Dictionary<string, object> previousValues = new Dictionary<string, object>();
-//        //public  Thread readThread;
-//        //public  bool continueReading = false;
-
-//        public OpcDaConnector(){}
-
-
-//        /// <summary>
-//        /// Establece conexión con el servidor OPC DA e inicializa el grupo de suscripción.
-//        /// </summary>
-//        /// <param name="opcda_url">URL del servidor OPC. Ej: opcda://localhost/BOSCH.OpcDaServer.1</param>
-//        /// <returns>True si la conexión fue exitosa, False en caso contrario.</returns>
-//        public bool Connect(string opcServerUrl)
-//        {
-//            if (string.IsNullOrWhiteSpace(opcServerUrl))
-//                throw new ArgumentException("La URL del servidor OPC no puede estar vacía.", nameof(opcServerUrl));
-
-//            Console.WriteLine($"[OPC] Conectando a: {opcServerUrl}");
-
-//            try
-//            {
-//                var url = new Opc.URL(opcServerUrl);
-//                var factory = new OpcCom.Factory();
-//                OpcDaServer = new Opc.Da.Server(factory, null);
-
-//                OpcDaServer.Connect(url, null);
-
-//                if (!OpcDaServer.IsConnected)
-//                {
-//                    Console.WriteLine("[OPC] Error: el servidor no reporta conexión activa.");
-//                    return false;
-//                }
-
-//                Console.WriteLine("[OPC] Conexión establecida correctamente.");                
-//                return true;
-//            }
-//            catch (Opc.ConnectFailedException ex)
-//            {
-//                Console.WriteLine($"[OPC] Falló la conexión: {ex.Message}");
-//                return false;
-//            }
-//            catch (Exception ex)
-//            {
-//                Console.WriteLine($"[OPC] Error inesperado al conectar: {ex.Message}");
-//                return false;
-//            }
-//        }
-
-//        /// <summary>
-//        /// Inicializa el grupo de suscripción y registra los ítems descubiertos.
-//        /// </summary>
-//        public void InitializeSubscriptionGroup()
-//        {
-//            Console.WriteLine("[OPC] Inicializando grupo de suscripción...");
-
-//            var groupState = new Opc.Da.SubscriptionState();
-//            try
-//            {
-//                // 1. Configurar el estado del grupo ANTES de crearlo
-//                groupState.Name = "FPA5000_Group";
-//                groupState.Active = true;
-//                groupState.UpdateRate = 5000;   // milisegundos — el servidor notifica cada 5s
-//                groupState.Deadband = 0;      // 0 = notifica cualquier cambio, sin filtro de variación
-
-//                // 2. Crear el grupo en el servidor con esa configuración
-//                group = (Subscription)OpcDaServer.CreateSubscription(groupState);
-
-//                // 3. Registrar los ítems dentro del grupo
-//                Browse(itemId, filter_branch, out position);
-//                var items = item_list.ToArray();
-//                group.AddItems(items);
-
-//                Console.WriteLine($"[OPC] Grupo '{groupState.Name}' inicializado con {items.Length} ítem(s).");
-//            }
-//            catch (Opc.ResultIDException ex)
-//            {
-//                Console.WriteLine("Error creating subscription: " + ex.Message);
-//                Console.WriteLine("ResultID: " + ex.Result);
-//            }              
-//        }
-
-//        public void SearchItems()
-//        {
-//            if (OpcDaServer != null && OpcDaServer.IsConnected && group != null)
-//            {
-//                group.Read(group.Items, 100, new Opc.Da.ReadCompleteEventHandler(ReadCompleteCallback), out request);
-//                Console.ReadLine();
-//            }
-//            else
-//            {
-//                Console.WriteLine("Server is not connected or group is not initialized.");
-//            }
-//        }
-
-//        public void Disconnect()
-//        {
-//            if (OpcDaServer is null || !OpcDaServer.IsConnected) return;
-
-//            try
-//            {
-//                OpcDaServer.Disconnect();
-//                Console.WriteLine("[OPC] Desconectado correctamente.");
-//            }
-//            catch (Exception ex)
-//            {
-//                Console.WriteLine($"[OPC] Error al desconectar: {ex.Message}");
-//            }
-//        }
-
-//        public void Dispose()
-//        {
-//            if (_disposed) return;
-//            Disconnect();
-//            OpcDaServer = null;
-//            _disposed = true;
-//        }
-
-
-
-//        private void ReadCompleteCallback(object clientHandle, Opc.Da.ItemValueResult[] results)
-//        {
-//            Console.WriteLine("Read completed");
-//            foreach (ItemValueResult readResult in results)
-//            {
-//                Console.WriteLine("\t{0}\tval:{1}", readResult.ItemName, readResult.Value);
-//            }
-//            Console.WriteLine();
-//        }
-
-//        private void Browse(ItemIdentifier _itemId, BrowseFilters _filter, out BrowsePosition _position)
-//        {
-//            BrowseElement[] branches = OpcDaServer.Browse(_itemId, _filter, out _position);
-//            if (branches != null)
-//            {
-//                foreach (BrowseElement branch in branches)
-//                {
-//                    if (branch.HasChildren)
-//                    {
-//                        var id = new ItemIdentifier(branch.ItemName);
-//                        BrowsePosition position_branch;
-//                        Browse(id, filter_branch, out position_branch);
-//                    }
-//                    else
-//                    {
-//                        item_list.Add(new Item()
-//                        {
-//                            ItemName = branch.ItemName
-//                        });
-//                    }
-//                }
-//            }
-
-//            BrowseElement[] childrens = OpcDaServer.Browse(_itemId, filter_all, out _position);
-//            if (childrens != null)
-//            {
-//                foreach (BrowseElement child in childrens)
-//                {
-//                    if (child.IsItem)
-//                    {
-//                        item_list.Add(new Item()
-//                        {
-//                            ItemName = child.ItemName
-//                        });
-//                    }
-//                }
-//            }
-//        }
-//    }
-//}

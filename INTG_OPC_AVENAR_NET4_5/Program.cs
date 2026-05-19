@@ -1,8 +1,11 @@
 ﻿using INTG_OPC;
-
+using Opc;
+using Opc.Da;
 using System;
 using System.Configuration;
 using System.Linq;
+using System.Net.Sockets;
+using System.Windows.Input;
 
 namespace INTG_OPC_AVENAR_NET4_5
 {
@@ -29,23 +32,42 @@ namespace INTG_OPC_AVENAR_NET4_5
                     return;
                 }
 
-                opcClient.PanelChanged += OnPanelChanged;
-                opcClient.ReadItems();
+
+                opcClient.PanelChanged += (values) => OnPanelChanged(values, opcClient);
+
+                //opcClient.ReadItems();
                 Console.WriteLine("\n==================================================");
                 Console.WriteLine("[APP] Presiona cualquier tecla para desconectar...");
                 Console.WriteLine("==================================================\n");
-                Console.ReadKey();
+
+               
+
+                Console.ReadKey();                              
             }
         }
 
-        private static void OnPanelChanged(Opc.Da.ItemValueResult[] values)
+        private static void OnPanelChanged(Opc.Da.ItemValueResult[] values, OpcClient opcClient)
         {
             foreach (var r in values)
             {
                 if (r.Quality.QualityBits == Opc.Da.qualityBits.bad)
-                    Console.WriteLine($"[PANEL] Desconectado — ítem: {r.ItemName}");
+                {
+                    Console.WriteLine($"[PANEL] Desconectado — ítem: {r.ItemName}");                    
+                }
                 else
+                {
                     Console.WriteLine($"[PANEL] Cambio: {r.ItemName} = {r.Value}");
+                    //obtener propiedades.
+                    //otneret pripiedad 5001
+                    var propierties = opcClient.GetItemProperties(r.ItemName, 5001);
+
+                    //buscar comandos 
+                    var comands = opcClient.GetItemProperties("CMD", int.Parse(propierties.Values));
+                    //escribir comandos
+
+                    //var results = opcClient.Write("CMD", comands["ACTIVATE_OFF"]);
+                }
+
             }
         }
 
