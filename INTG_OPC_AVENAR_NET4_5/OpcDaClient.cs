@@ -654,6 +654,9 @@ namespace INTG_OPC
 
                 File.WriteAllText(filePath, json, Encoding.UTF8);
                 Console.WriteLine($"[OPC] Árbol limpio exportado: {filePath}");
+
+                ExportCommandsToJson(outputFolder, timestamp);
+
                 return filePath;
             }
             catch (Exception ex)
@@ -817,11 +820,139 @@ namespace INTG_OPC
             sb.Append($"{pad}}}");
         }
 
+        // ══════════════════════════════════════════════════════
+        // Exportación de comandos CMD
+        // ══════════════════════════════════════════════════════
+
+        private void ExportCommandsToJson(string outputFolder, DateTime timestamp)
+        {
+            try
+            {
+                var fileName = $"commands_{timestamp:yyyyMMdd_HHmmss}.json";
+                var filePath = Path.Combine(outputFolder, fileName);
+
+                var props = FetchCmdProperties("CMD");
+                var json  = SerializeCommandsJson(props, _serverUrl, timestamp);
+
+                File.WriteAllText(filePath, json, Encoding.UTF8);
+                Console.WriteLine($"[OPC] Comandos CMD exportados: {filePath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al exportar comandos CMD: {ex.Message}");
+            }
+        }
+
+        private List<CmdProperty> FetchCmdProperties(string itemName)
+        {
+            try
+            {
+                var results = _server.GetProperties(
+                    new[] { new ItemIdentifier(itemName) }, null, true);
+
+                if (results == null || results.Length == 0)
+                    return new List<CmdProperty>();
+
+                var props = new List<CmdProperty>();
+                foreach (ItemProperty prop in results[0])
+                {
+                    if (!prop.ResultID.Succeeded()) continue;
+
+                    var cmdProp = new CmdProperty
+                    {
+                        Code        = prop.ID.Code,
+                        Description = string.IsNullOrWhiteSpace(prop.Description)
+                            ? $"property_{prop.ID.Code}"
+                            : prop.Description
+                    };
+
+                    var raw = prop.Value?.ToString() ?? string.Empty;
+                    if (raw.TrimStart().StartsWith("<"))
+                    {
+                        try
+                        {
+                            var doc = XDocument.Parse(raw);
+                            XNamespace ns = "file:///S3K/Proxyverwalter";
+                            cmdProp.Commands = doc.Descendants(ns + "Command")
+                                .ToDictionary(
+                                    e => e.Attribute("Name")?.Value ?? "(unnamed)",
+                                    e => e.ToString());
+                        }
+                        catch
+                        {
+                            cmdProp.Value = raw;
+                        }
+                    }
+                    else
+                    {
+                        cmdProp.Value = raw;
+                    }
+
+                    props.Add(cmdProp);
+                }
+                return props;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al leer propiedades de '{itemName}': {ex.Message}");
+                return new List<CmdProperty>();
+            }
+        }
+
+        private static string SerializeCommandsJson(List<CmdProperty> props, string serverUrl, DateTime timestamp)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine($"  \"createdAt\": \"{timestamp:yyyy-MM-ddTHH:mm:ss}\",");
+            sb.AppendLine($"  \"server\": {ToJsonString(serverUrl)},");
+            sb.AppendLine("  \"cmd\": [");
+
+            for (int i = 0; i < props.Count; i++)
+            {
+                var p     = props[i];
+                var comma = i < props.Count - 1 ? "," : string.Empty;
+
+                if (p.Commands != null)
+                {
+                    sb.AppendLine("    {");
+                    sb.AppendLine($"      \"code\": {p.Code},");
+                    sb.AppendLine($"      \"description\": {ToJsonString(p.Description)},");
+                    sb.AppendLine("      \"commands\": {");
+
+                    var cmdList = p.Commands.ToList();
+                    for (int j = 0; j < cmdList.Count; j++)
+                    {
+                        var cmdComma = j < cmdList.Count - 1 ? "," : string.Empty;
+                        sb.AppendLine($"        {ToJsonString(cmdList[j].Key)}: {ToJsonString(cmdList[j].Value)}{cmdComma}");
+                    }
+
+                    sb.AppendLine("      }");
+                    sb.AppendLine($"    }}{comma}");
+                }
+                else
+                {
+                    sb.AppendLine($"    {{ \"code\": {p.Code}, \"description\": {ToJsonString(p.Description)}, \"value\": {ToJsonString(p.Value)} }}{comma}");
+                }
+            }
+
+            sb.AppendLine("  ]");
+            sb.Append("}");
+            return sb.ToString();
+        }
+
         private sealed class OpcProperty
         {
             public int    Code        { get; set; }
             public string Description { get; set; }
             public string Value       { get; set; }
+        }
+
+        private sealed class CmdProperty
+        {
+            public int    Code        { get; set; }
+            public string Description { get; set; }
+            public string Value       { get; set; }                       // null cuando es XML
+            public Dictionary<string, string> Commands { get; set; }      // null cuando no es XML
         }
 
         private sealed class CleanOpcNode

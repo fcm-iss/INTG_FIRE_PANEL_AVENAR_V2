@@ -33,10 +33,10 @@ namespace INTG_OPC_AVENAR_NET4_5
                     return;
                 }
 
-                var pahtJson = opcClient.ExportTreeToJson();
+                //var pahtJson = opcClient.ExportTreeToJson();
                 var pathjsonClean =  opcClient.ExportCleanTreeToJson();
 
-                Console.WriteLine($"Path arbol completo{pahtJson}");
+                //Console.WriteLine($"Path arbol completo{pahtJson}");
                 Console.WriteLine($"Path arbol limpio {pathjsonClean}");
 
                 opcClient.PanelChanged += (values) => OnPanelChanged(values, opcClient);
