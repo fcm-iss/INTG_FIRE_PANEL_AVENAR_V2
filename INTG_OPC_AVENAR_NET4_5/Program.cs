@@ -11,6 +11,7 @@ namespace INTG_OPC_AVENAR_NET4_5
 {
     internal class Program
     {
+        [STAThread]
         static void Main(string[] args)
         {
             using (var opcClient = new OpcClient())
@@ -32,6 +33,11 @@ namespace INTG_OPC_AVENAR_NET4_5
                     return;
                 }
 
+                var pahtJson = opcClient.ExportTreeToJson();
+                var pathjsonClean =  opcClient.ExportCleanTreeToJson();
+
+                Console.WriteLine($"Path arbol completo{pahtJson}");
+                Console.WriteLine($"Path arbol limpio {pathjsonClean}");
 
                 opcClient.PanelChanged += (values) => OnPanelChanged(values, opcClient);
 
@@ -62,10 +68,13 @@ namespace INTG_OPC_AVENAR_NET4_5
                     var propierties = opcClient.GetItemProperties(r.ItemName, 5001);
 
                     //buscar comandos 
-                    var comands = opcClient.GetItemProperties("CMD", int.Parse(propierties.Values));
+                    var comands = opcClient.GetItemProperties("CMD", int.Parse(propierties["DetectorTypeID"]));
                     //escribir comandos
 
-                    //var results = opcClient.Write("CMD", comands["ACTIVATE_OFF"]);
+                    if (comands != null && comands.ContainsKey("ACTIVATE_OFF"))
+                    {
+                        var results = opcClient.Write("CMD", comands["ACTIVATE_OFF"]);
+                    }
                 }
 
             }

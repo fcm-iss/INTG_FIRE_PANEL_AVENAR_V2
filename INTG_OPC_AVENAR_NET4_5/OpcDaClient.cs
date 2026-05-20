@@ -2,8 +2,10 @@
 using Opc.Da;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Xml.Linq;
 
 namespace INTG_OPC
@@ -20,6 +22,7 @@ namespace INTG_OPC
 
         private Opc.Da.Server _server;
         private Subscription _subscription;
+        private string _serverUrl;
         private bool _disposed;
 
         private static readonly BrowseFilters FilterAll = new BrowseFilters
@@ -115,6 +118,7 @@ namespace INTG_OPC
                     return false;
                 }
 
+                _serverUrl = opcServerUrl;
                 Console.WriteLine("[OPC] Conexión establecida correctamente.");
                 return true;
             }
@@ -333,7 +337,8 @@ namespace INTG_OPC
         {
             return new SubscriptionState
             {
-                Name = name,
+                //Name = name,
+                Name = $"{name}_{Guid.NewGuid().ToString("N").Substring(0, 8)}",
                 Active = true,
                 UpdateRate = updateRateMs,
                 Deadband = 0
@@ -469,6 +474,374 @@ namespace INTG_OPC
             }
         }
 
+        // ══════════════════════════════════════════════════════
+        // Exportación del árbol a JSON
+        // ══════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Recorre el árbol OPC y guarda un JSON con la jerarquía completa.
+        /// El archivo se llama treeAvenarGroup_yyyyMMdd_HHmmss.json
+        /// </summary>
+        /// <param name="outputFolder">Carpeta destino; null = directorio del ejecutable.</param>
+        /// <returns>Ruta completa del archivo generado, o null si ocurrió un error.</returns>
+        public string ExportTreeToJson(string outputFolder = null)
+        {
+            ThrowIfNotConnected();
+
+            if (string.IsNullOrWhiteSpace(outputFolder))
+                outputFolder = AppDomain.CurrentDomain.BaseDirectory;
+
+            try
+            {
+                Directory.CreateDirectory(outputFolder);
+
+                var timestamp = DateTime.Now;
+                var fileName  = $"treeAvenarGroup_{timestamp:yyyyMMdd_HHmmss}.json";
+                var filePath  = Path.Combine(outputFolder, fileName);
+
+                var root = BuildTreeNode(null);
+                var json = SerializeTree(root, _serverUrl, timestamp);
+
+                File.WriteAllText(filePath, json, Encoding.UTF8);
+                Console.WriteLine($"[OPC] Árbol exportado: {filePath}");
+                return filePath;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al exportar árbol: {ex.Message}");
+                return null;
+            }
+        }
+
+        private OpcTreeNode BuildTreeNode(ItemIdentifier nodeId)
+        {
+            var node = new OpcTreeNode
+            {
+                Name     = LeafName(nodeId?.ItemName),
+                ItemName = nodeId?.ItemName ?? string.Empty,
+                IsItem   = false
+            };
+
+            try
+            {
+                BrowsePosition pos;
+
+                var branches = _server.Browse(nodeId, FilterBranch, out pos);
+                if (branches != null)
+                    foreach (var b in branches)
+                        node.Children.Add(BuildTreeNode(new ItemIdentifier(b.ItemName)));
+
+                var items = _server.Browse(nodeId, FilterItem, out pos);
+                if (items != null)
+                    foreach (var item in items)
+                        node.Children.Add(new OpcTreeNode
+                        {
+                            Name     = LeafName(item.ItemName),
+                            ItemName = item.ItemName,
+                            IsItem   = true
+                        });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al explorar nodo '{node.ItemName}': {ex.Message}");
+            }
+
+            return node;
+        }
+
+        private static string SerializeTree(OpcTreeNode root, string serverUrl, DateTime timestamp)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine($"  \"createdAt\": \"{timestamp:yyyy-MM-ddTHH:mm:ss}\",");
+            sb.AppendLine($"  \"server\": {ToJsonString(serverUrl)},");
+            sb.Append("  \"tree\": ");
+            AppendNode(sb, root, 1);
+            sb.AppendLine();
+            sb.Append("}");
+            return sb.ToString();
+        }
+
+        private static void AppendNode(StringBuilder sb, OpcTreeNode node, int depth)
+        {
+            var pad  = new string(' ', depth * 2);
+            var pad1 = new string(' ', (depth + 1) * 2);
+
+            sb.AppendLine("{");
+            sb.AppendLine($"{pad1}\"name\": {ToJsonString(node.Name)},");
+            sb.AppendLine($"{pad1}\"itemName\": {ToJsonString(node.ItemName)},");
+            sb.AppendLine($"{pad1}\"isItem\": {(node.IsItem ? "true" : "false")},");
+            sb.Append($"{pad1}\"children\": ");
+
+            if (node.Children.Count == 0)
+            {
+                sb.AppendLine("[]");
+            }
+            else
+            {
+                sb.AppendLine("[");
+                for (int i = 0; i < node.Children.Count; i++)
+                {
+                    sb.Append(pad1 + "  ");
+                    AppendNode(sb, node.Children[i], depth + 2);
+                    sb.AppendLine(i < node.Children.Count - 1 ? "," : string.Empty);
+                }
+                sb.AppendLine($"{pad1}]");
+            }
+
+            sb.Append($"{pad}}}");
+        }
+
+        private static string ToJsonString(string value)
+        {
+            if (value == null) return "null";
+            var sb = new StringBuilder(value.Length + 2);
+            sb.Append('"');
+            foreach (char c in value)
+            {
+                switch (c)
+                {
+                    case '"':  sb.Append("\\\""); break;
+                    case '\\': sb.Append("\\\\"); break;
+                    case '\n': sb.Append("\\n");  break;
+                    case '\r': sb.Append("\\r");  break;
+                    case '\t': sb.Append("\\t");  break;
+                    default:
+                        if (c < 0x20)
+                            sb.Append($"\\u{(int)c:x4}");
+                        else
+                            sb.Append(c);
+                        break;
+                }
+            }
+            sb.Append('"');
+            return sb.ToString();
+        }
+
+        private static string LeafName(string itemName) =>
+            string.IsNullOrEmpty(itemName) ? "root" : itemName.Split('.').Last();
+
+        // ══════════════════════════════════════════════════════
+        // Exportación del árbol limpio (solo ítems + propiedades)
+        // ══════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Exporta solo los ítems del árbol OPC conservando la jerarquía de ramas.
+        /// Cada ítem incluye todas sus propiedades disponibles.
+        /// El archivo se llama treeAvenarGroup_clean_yyyyMMdd_HHmmss.json
+        /// </summary>
+        /// <param name="outputFolder">Carpeta destino; null = directorio del ejecutable.</param>
+        /// <returns>Ruta completa del archivo generado, o null si ocurrió un error.</returns>
+        public string ExportCleanTreeToJson(string outputFolder = null)
+        {
+            ThrowIfNotConnected();
+
+            if (string.IsNullOrWhiteSpace(outputFolder))
+                outputFolder = AppDomain.CurrentDomain.BaseDirectory;
+
+            try
+            {
+                Directory.CreateDirectory(outputFolder);
+
+                var timestamp = DateTime.Now;
+                var fileName  = $"treeAvenarGroup_clean_{timestamp:yyyyMMdd_HHmmss}.json";
+                var filePath  = Path.Combine(outputFolder, fileName);
+
+                var rawRoot   = BuildTreeNode(null);
+                var cleanRoot = BuildCleanNode(rawRoot);
+                AssignIds(cleanRoot);
+                var json      = SerializeCleanTree(cleanRoot, _serverUrl, timestamp);
+
+                File.WriteAllText(filePath, json, Encoding.UTF8);
+                Console.WriteLine($"[OPC] Árbol limpio exportado: {filePath}");
+                return filePath;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al exportar árbol limpio: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Transforma un nodo del árbol raw en un nodo limpio.
+        /// Fusiona hijos que comparten nombre (rama + ítem → nodo único con
+        /// properties del ítem y children de la rama).
+        /// </summary>
+        private CleanOpcNode BuildCleanNode(OpcTreeNode rawNode)
+        {
+            if (rawNode.IsItem)
+            {
+                return new CleanOpcNode
+                {
+                    Name        = rawNode.Name,
+                    ElementType = "item",
+                    Properties  = FetchAllProperties(rawNode.ItemName)
+                };
+            }
+
+            // Procesa hijos y fusiona los que tengan el mismo nombre
+            var orderedKeys = new List<string>();
+            var mergeMap    = new Dictionary<string, CleanOpcNode>(StringComparer.Ordinal);
+
+            foreach (var child in rawNode.Children)
+            {
+                var cleanChild = BuildCleanNode(child);
+                if (cleanChild == null) continue;
+
+                if (mergeMap.TryGetValue(cleanChild.Name, out var existing))
+                {
+                    // Toma las propiedades del ítem si la rama aún no las tiene
+                    if ((existing.Properties == null || existing.Properties.Count == 0) && cleanChild.Properties?.Count > 0)
+                        existing.Properties = cleanChild.Properties;
+
+                    foreach (var grandchild in cleanChild.Children)
+                        existing.Children.Add(grandchild);
+
+                    if (existing.Children.Count > 0)
+                        existing.ElementType = "branch";
+                }
+                else
+                {
+                    mergeMap[cleanChild.Name] = cleanChild;
+                    orderedKeys.Add(cleanChild.Name);
+                }
+            }
+
+            if (orderedKeys.Count == 0) return null;
+
+            var node = new CleanOpcNode { Name = rawNode.Name, ElementType = "branch" };
+            foreach (var key in orderedKeys)
+                node.Children.Add(mergeMap[key]);
+
+            return node;
+        }
+
+        private static void AssignIds(CleanOpcNode node, string parentId = "")
+        {
+            for (int i = 0; i < node.Children.Count; i++)
+            {
+                var child = node.Children[i];
+                child.Id = string.IsNullOrEmpty(parentId)
+                    ? (i + 1).ToString()
+                    : $"{parentId}.{i + 1}";
+                AssignIds(child, child.Id);
+            }
+        }
+
+        private List<OpcProperty> FetchAllProperties(string itemName)
+        {
+            try
+            {
+                var results = _server.GetProperties(
+                    new[] { new ItemIdentifier(itemName) }, null, true);
+
+                if (results == null || results.Length == 0)
+                    return new List<OpcProperty>();
+
+                var props = new List<OpcProperty>();
+                foreach (ItemProperty prop in results[0])
+                {
+                    if (!prop.ResultID.Succeeded()) continue;
+
+                    props.Add(new OpcProperty
+                    {
+                        Code        = prop.ID.Code,
+                        Description = string.IsNullOrWhiteSpace(prop.Description)
+                            ? $"property_{prop.ID.Code}"
+                            : prop.Description,
+                        Value       = prop.Value?.ToString() ?? string.Empty
+                    });
+                }
+                return props;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al leer propiedades de '{itemName}': {ex.Message}");
+                return new List<OpcProperty>();
+            }
+        }
+
+        private static string SerializeCleanTree(CleanOpcNode root, string serverUrl, DateTime timestamp)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine($"  \"createdAt\": \"{timestamp:yyyy-MM-ddTHH:mm:ss}\",");
+            sb.AppendLine($"  \"server\": {ToJsonString(serverUrl)},");
+            sb.Append("  \"tree\": ");
+            AppendCleanNode(sb, root, 1);
+            sb.AppendLine();
+            sb.Append("}");
+            return sb.ToString();
+        }
+
+        private static void AppendCleanNode(StringBuilder sb, CleanOpcNode node, int depth)
+        {
+            var pad  = new string(' ', depth * 2);
+            var pad1 = new string(' ', (depth + 1) * 2);
+
+            sb.AppendLine("{");
+            sb.AppendLine($"{pad1}\"name\": {ToJsonString(node.Name)},");
+            sb.AppendLine($"{pad1}\"id\": {ToJsonString(node.Id)},");
+            sb.AppendLine($"{pad1}\"elementType\": \"{node.ElementType}\",");
+
+            // properties — siempre presente, vacío si es rama pura
+            var props = node.Properties ?? new List<OpcProperty>();
+            sb.AppendLine($"{pad1}\"properties\": [");
+            for (int i = 0; i < props.Count; i++)
+            {
+                var comma = i < props.Count - 1 ? "," : string.Empty;
+                var p = props[i];
+                sb.AppendLine($"{pad1}  {{ \"code\": {p.Code}, \"description\": {ToJsonString(p.Description)}, \"value\": {ToJsonString(p.Value)} }}{comma}");
+            }
+            sb.AppendLine($"{pad1}],");
+
+            // children — siempre presente, vacío si es ítem puro
+            sb.Append($"{pad1}\"children\": ");
+            if (node.Children.Count == 0)
+            {
+                sb.AppendLine("[]");
+            }
+            else
+            {
+                sb.AppendLine("[");
+                for (int i = 0; i < node.Children.Count; i++)
+                {
+                    sb.Append(pad1 + "  ");
+                    AppendCleanNode(sb, node.Children[i], depth + 2);
+                    sb.AppendLine(i < node.Children.Count - 1 ? "," : string.Empty);
+                }
+                sb.AppendLine($"{pad1}]");
+            }
+
+            sb.Append($"{pad}}}");
+        }
+
+        private sealed class OpcProperty
+        {
+            public int    Code        { get; set; }
+            public string Description { get; set; }
+            public string Value       { get; set; }
+        }
+
+        private sealed class CleanOpcNode
+        {
+            public string Name        { get; set; }
+            public string Id          { get; set; }
+            public string ElementType { get; set; }
+            public List<OpcProperty> Properties { get; set; }
+            public List<CleanOpcNode> Children { get; } = new List<CleanOpcNode>();
+        }
+
+        private sealed class OpcTreeNode
+        {
+            public string           Name     { get; set; }
+            public string           ItemName { get; set; }
+            public bool             IsItem   { get; set; }
+            public List<OpcTreeNode> Children { get; } = new List<OpcTreeNode>();
+        }
+
+        //----------------------------------------------------------------
         public Dictionary<string, string> GetItemProperties(string itemName, int NumPropertie)
         {
             try
