@@ -1,8 +1,10 @@
 ﻿using INTG_OPC;
+using ISS.OPCMonitor;
 using Opc;
 using Opc.Da;
 using System;
 using System.Configuration;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Windows.Input;
@@ -34,10 +36,23 @@ namespace INTG_OPC_AVENAR_NET4_5
                 }
 
                 //var pahtJson = opcClient.ExportTreeToJson();
-                var pathjsonClean =  opcClient.ExportCleanTreeToJson();
+                //var pathjsonClean =  opcClient.ExportCleanTreeToJson();
 
                 //Console.WriteLine($"Path arbol completo{pahtJson}");
-                Console.WriteLine($"Path arbol limpio {pathjsonClean}");
+                //Console.WriteLine($"Path arbol limpio {pathjsonClean}");
+
+                var exporterPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    $"treeExporter_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+                var exporter = new OpcTreeExporter(opcClient.Server);
+                exporter.ExportCleanTreeToJson(exporterPath);
+                Console.WriteLine($"Path arbol exportador {exporterPath}");
+
+                var branchTreePath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    $"treeBranches_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+                exporter.ExportBranchTreeToJson(branchTreePath);
+                Console.WriteLine($"Path arbol branches {branchTreePath}");
 
                 opcClient.PanelChanged += (values) => OnPanelChanged(values, opcClient);
 

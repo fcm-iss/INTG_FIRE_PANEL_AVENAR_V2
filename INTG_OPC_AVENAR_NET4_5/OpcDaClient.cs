@@ -48,6 +48,7 @@ namespace INTG_OPC
         // ══════════════════════════════════════════════════════
 
         public bool IsConnected => _server != null && _server.IsConnected;
+        public Opc.Da.Server Server => _server;
 
         public OpcClient()
         {
