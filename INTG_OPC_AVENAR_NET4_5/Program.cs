@@ -41,18 +41,31 @@ namespace INTG_OPC_AVENAR_NET4_5
                 //Console.WriteLine($"Path arbol completo{pahtJson}");
                 //Console.WriteLine($"Path arbol limpio {pathjsonClean}");
 
-                var exporterPath = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    $"treeExporter_{DateTime.Now:yyyyMMdd_HHmmss}.json");
                 var exporter = new OpcTreeExporter(opcClient.Server);
-                exporter.ExportCleanTreeToJson(exporterPath);
-                Console.WriteLine($"Path arbol exportador {exporterPath}");
+
+                //var exporterPath = Path.Combine(
+                //    AppDomain.CurrentDomain.BaseDirectory,
+                //    $"treeExporter_{DateTime.Now:yyyyMMdd_HHmmss}.json");                
+                //exporter.ExportCleanTreeToJson(exporterPath);
+                //Console.WriteLine($"Path arbol exportador {exporterPath}");
 
                 var branchTreePath = Path.Combine(
                     AppDomain.CurrentDomain.BaseDirectory,
                     $"treeBranches_{DateTime.Now:yyyyMMdd_HHmmss}.json");
                 exporter.ExportBranchTreeToJson(branchTreePath);
                 Console.WriteLine($"Path arbol branches {branchTreePath}");
+
+                var integrationPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+                exporter.ExportIntegrationJson(integrationPath);
+                Console.WriteLine($"Path integration JSON {integrationPath}");
+
+                var ddiPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.ddi");
+                exporter.ExportDdiFile(ddiPath);
+                Console.WriteLine($"Path DDI {ddiPath}");
 
                 opcClient.PanelChanged += (values) => OnPanelChanged(values, opcClient);
 

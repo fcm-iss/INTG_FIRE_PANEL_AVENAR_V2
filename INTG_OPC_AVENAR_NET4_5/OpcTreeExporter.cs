@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
@@ -86,6 +87,183 @@ namespace ISS.OPCMonitor
                     { "elementType", elem.IsItem ? "branch|item" : "branch" },
                     { "children",    BuildBranchChildren(new ItemIdentifier(elem.ItemName)) }
                 };
+
+                result.Add(node);
+            }
+
+            return result;
+        }
+
+        public void ExportIntegrationJson(string outputPath)
+        {
+            Console.WriteLine("Building OPC integration JSON...");
+
+            var root = new Dictionary<string, object>
+            {
+                { "version",       1  },
+                { "reset_timeout", 60 },
+                { "structure",     BuildIntegrationChildren(null, isFirstLevel: true) }
+            };
+
+            string json = FormatIntegrationJson(root);
+
+            File.WriteAllText(outputPath, json, Encoding.UTF8);
+            Console.WriteLine("Integration JSON exported to: " + outputPath);
+        }
+
+        public void ExportDdiFile(string outputPath)
+        {
+            Console.WriteLine("Building DDI file...");
+
+            var structure = BuildIntegrationChildren(null, isFirstLevel: true);
+            var types = new List<string>();
+            CollectUniqueTypes(structure, types);
+
+            int c1 = Math.Max(types.Count > 0 ? types.Max(t => t.Length) + 2 : 22, 22);
+            const int c2 = 27, c3 = 13, c4 = 20, c5 = 19, c6 = 16;
+
+            var sb = new StringBuilder();
+
+            sb.AppendLine("[OBJTYPE]");
+            sb.AppendLine(Col("<objType>", c1) + "|" + Col("<Type name>", c2) + "|" + Col("<Group name>", c3) + "|");
+            sb.AppendLine();
+            foreach (var t in types)
+                sb.AppendLine(Col(t, c1) + "|" + Col("", c2) + "|" + Col("", c3) + "|");
+            sb.AppendLine();
+
+            sb.AppendLine("[EVENT]");
+            sb.AppendLine(Col("<objType>", c1) + "|" + Col("<type>", c2) + "|" + Col("<>", c3) + "|" + Col("<name>", c4) + "|" + Col("<>", c5) + "|");
+            sb.AppendLine();
+            sb.AppendLine();
+
+            sb.AppendLine("[REACT]");
+            sb.AppendLine(Col("<objType>", c1) + "|" + Col("<comand-type>", c2) + "|" + Col("<>", c3) + "|" + Col("<>", c4) + "|" + Col("<comand-name>", c5) + "|" + Col("<>", c6) + "|");
+            sb.AppendLine();
+            sb.AppendLine();
+
+            sb.AppendLine("[STATE]");
+            sb.AppendLine(Col("<objType>", c1) + "|" + Col("<state>", c2) + "|" + Col("<shortName>", c3) + "|" + Col("<>", c4) + "|" + Col("<>", c5) + "|" + Col("<Descripcion/name>", c6) + "|");
+            sb.AppendLine();
+            sb.AppendLine();
+
+            sb.AppendLine("[MARKER]");
+            sb.AppendLine();
+
+            sb.AppendLine("[STATE_RULE]");
+            sb.AppendLine(Col("<objType>", c1) + "|" + Col("<trigguer Event>", c2) + "|" + Col("<FromStatus>", c3) + "|" + Col("<To State>", c4) + "|");
+            sb.AppendLine();
+
+            File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
+            Console.WriteLine("DDI file exported to: " + outputPath);
+        }
+
+        private static void CollectUniqueTypes(List<object> items, List<string> types)
+        {
+            foreach (Dictionary<string, object> item in items)
+            {
+                string type = (string)item["type"];
+                if (!types.Contains(type))
+                    types.Add(type);
+                if (item.ContainsKey("children"))
+                    CollectUniqueTypes((List<object>)item["children"], types);
+            }
+        }
+
+        private static string Col(string value, int width)
+        {
+            if (value == null) value = "";
+            return value.Length >= width ? value : value + new string(' ', width - value.Length);
+        }
+
+        private static string FormatIntegrationJson(Dictionary<string, object> root)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+            WriteIntegrationObject(sb, root, indent: 1);
+            sb.Append("}");
+            return sb.ToString();
+        }
+
+        private static void WriteIntegrationObject(StringBuilder sb, Dictionary<string, object> obj, int indent)
+        {
+            string pad = new string('\t', indent);
+            var keys = new List<string>(obj.Keys);
+            for (int i = 0; i < keys.Count; i++)
+            {
+                string key   = keys[i];
+                object value = obj[key];
+                bool   last  = i == keys.Count - 1;
+
+                if (value is List<object> list)
+                {
+                    sb.AppendLine(pad + "\"" + key + "\":");
+                    sb.Append(pad + "[");
+                    WriteIntegrationArray(sb, list, indent, last);
+                }
+                else
+                {
+                    sb.Append(pad + "\"" + key + "\": " + ToJsonScalar(value));
+                    sb.AppendLine(last ? "" : ",");
+                }
+            }
+        }
+
+        private static void WriteIntegrationArray(StringBuilder sb, List<object> list, int indent, bool lastProp)
+        {
+            string pad = new string('\t', indent);
+            for (int i = 0; i < list.Count; i++)
+            {
+                sb.Append(i > 0 ? "},{" : "{");
+                sb.AppendLine();
+                WriteIntegrationObject(sb, (Dictionary<string, object>)list[i], indent + 1);
+                sb.Append(pad);
+            }
+            sb.Append("}]");
+            if (!lastProp) sb.Append(",");
+            sb.AppendLine();
+        }
+
+        private static string ToJsonScalar(object value)
+        {
+            if (value == null)   return "null";
+            if (value is string s) return "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+            if (value is bool b)   return b ? "true" : "false";
+            return value.ToString();
+        }
+
+        private List<object> BuildIntegrationChildren(ItemIdentifier parentId, bool isFirstLevel = false)
+        {
+            BrowsePosition pos;
+            BrowseElement[] elements;
+
+            try
+            {
+                elements = _server.Browse(parentId, FilterAll, out pos);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Browse error at '" + (parentId != null ? parentId.ItemName : "root") + "': " + ex.Message);
+                return new List<object>();
+            }
+
+            if (elements == null || elements.Length == 0)
+                return new List<object>();
+
+            var result = new List<object>();
+
+            foreach (var elem in elements)
+            {
+                if (!elem.HasChildren)
+                    continue;
+
+                var children = BuildIntegrationChildren(new ItemIdentifier(elem.ItemName));
+
+                var node = new Dictionary<string, object>();
+                if (isFirstLevel)
+                    node["parent"] = "INTEGRATION";
+                node["type"] = elem.Name;
+                if (children.Count > 0)
+                    node["children"] = children;
 
                 result.Add(node);
             }
