@@ -44,11 +44,11 @@ namespace INTG_OPC_AVENAR_NET4_5
                 //Console.WriteLine($"Path arbol completo{pahtJson}");
                 //Console.WriteLine($"Path arbol limpio {pathjsonClean}");
 
-                //var exporterPath = Path.Combine(
-                //    AppDomain.CurrentDomain.BaseDirectory,
-                //    $"treeExporter_{DateTime.Now:yyyyMMdd_HHmmss}.json");                
-                //exporter.ExportCleanTreeToJson(exporterPath);
-                //Console.WriteLine($"Path arbol exportador {exporterPath}");
+                var exporterPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    $"treeExporter_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+                exporter.ExportCleanTreeToJson(exporterPath);
+                Console.WriteLine($"Path arbol exportador {exporterPath}");
 
                 //var branchTreePath = Path.Combine(
                 //    AppDomain.CurrentDomain.BaseDirectory,
