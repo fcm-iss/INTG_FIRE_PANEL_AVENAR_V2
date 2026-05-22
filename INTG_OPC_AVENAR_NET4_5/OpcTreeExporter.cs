@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
+using System.Xml.Linq;
 using Opc;
 using Opc.Da;
 
@@ -13,11 +14,18 @@ namespace ISS.OPCMonitor
     class OpcTreeExporter
     {
         private readonly Opc.Da.Server _server;
-        private static readonly BrowseFilters FilterAll = new BrowseFilters { BrowseFilter = browseFilter.all };
+        private readonly string _prefix;
+        private readonly string _serverUrl;
 
-        public OpcTreeExporter(Opc.Da.Server server)
+        private static readonly BrowseFilters FilterAll    = new BrowseFilters { BrowseFilter = browseFilter.all };
+        private static readonly BrowseFilters FilterBranch = new BrowseFilters { BrowseFilter = browseFilter.branch };
+        private static readonly BrowseFilters FilterItem   = new BrowseFilters { BrowseFilter = browseFilter.item };
+
+        public OpcTreeExporter(Opc.Da.Server server, string prefix = "", string serverUrl = "")
         {
-            _server = server;
+            _server    = server;
+            _prefix    = prefix ?? "";
+            _serverUrl = serverUrl ?? "";
         }
 
         public void ExportCleanTreeToJson(string outputPath)
@@ -34,7 +42,7 @@ namespace ISS.OPCMonitor
             var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
             string json = PrettyPrint(serializer.Serialize(root));
 
-            File.WriteAllText(outputPath, json, Encoding.UTF8);
+            File.WriteAllText(outputPath, json, new UTF8Encoding(false));
             Console.WriteLine("Tree exported to: " + outputPath);
         }
 
@@ -52,7 +60,7 @@ namespace ISS.OPCMonitor
             var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
             string json = PrettyPrint(serializer.Serialize(root));
 
-            File.WriteAllText(outputPath, json, Encoding.UTF8);
+            File.WriteAllText(outputPath, json, new UTF8Encoding(false));
             Console.WriteLine("Branch tree exported to: " + outputPath);
         }
 
@@ -94,7 +102,7 @@ namespace ISS.OPCMonitor
             return result;
         }
 
-        public void ExportIntegrationJson(string outputPath)
+        public void ExportIntegrationJson(string outputPath, ICollection<string> allowedChildTypes = null)
         {
             Console.WriteLine("Building OPC integration JSON...");
 
@@ -102,59 +110,107 @@ namespace ISS.OPCMonitor
             {
                 { "version",       1  },
                 { "reset_timeout", 60 },
-                { "structure",     BuildIntegrationChildren(null, isFirstLevel: true) }
+                { "structure",     BuildIntegrationChildren(null, isFirstLevel: true, filter: allowedChildTypes) }
             };
 
             string json = FormatIntegrationJson(root);
 
-            File.WriteAllText(outputPath, json, Encoding.UTF8);
+            File.WriteAllText(outputPath, json, new UTF8Encoding(false));
             Console.WriteLine("Integration JSON exported to: " + outputPath);
         }
 
-        public void ExportDdiFile(string outputPath)
+        public void ExportDdiFile(string outputPath, ICollection<string> allowedChildTypes = null)
         {
             Console.WriteLine("Building DDI file...");
 
-            var structure = BuildIntegrationChildren(null, isFirstLevel: true);
+            var structure = BuildIntegrationChildren(null, isFirstLevel: true, filter: allowedChildTypes);
             var types = new List<string>();
             CollectUniqueTypes(structure, types);
 
-            int c1 = Math.Max(types.Count > 0 ? types.Max(t => t.Length) + 2 : 22, 22);
-            const int c2 = 27, c3 = 13, c4 = 20, c5 = 19, c6 = 16;
+            Console.WriteLine("Collecting events from OPC tree...");
+            var events = CollectEventRows(allowedChildTypes);
+
+            int c1 = Math.Max(22, Math.Max(
+                types.Count  > 0 ? types.Max(t => t.Length)         + 2 : 0,
+                events.Count > 0 ? events.Max(e => e.Item1.Length)  + 2 : 0));
+            int c3base = types.Count > 0 ? types.Max(t => t.Length) + 2 : 27;
+            int c4 = Math.Max(20, events.Count > 0 ? events.Max(e => e.Item3.Length) + 2 : 20);
+            int c5 = c4;
+            const int c2 = 27, c6 = 16;
+            int c3 = Math.Max(c3base, 27);
 
             var sb = new StringBuilder();
 
             sb.AppendLine("[OBJTYPE]");
-            sb.AppendLine(Col("<objType>", c1) + "|" + Col("<Type name>", c2) + "|" + Col("<Group name>", c3) + "|");
-            sb.AppendLine();
             foreach (var t in types)
-                sb.AppendLine(Col(t, c1) + "|" + Col("", c2) + "|" + Col("", c3) + "|");
+            {
+                string baseName = t.StartsWith(_prefix) ? t.Substring(_prefix.Length) : t;
+                sb.AppendLine(Col(t, c1) + "|" + Col(baseName, c2) + "|" + Col(baseName, c3) + "|");
+            }
             sb.AppendLine();
 
             sb.AppendLine("[EVENT]");
-            sb.AppendLine(Col("<objType>", c1) + "|" + Col("<type>", c2) + "|" + Col("<>", c3) + "|" + Col("<name>", c4) + "|" + Col("<>", c5) + "|");
-            sb.AppendLine();
+            foreach (var ev in events)
+                sb.AppendLine(Col(ev.Item1, c1) + "|" + Col(ev.Item2, c2) + "|" + Col("", c3) + "|" + Col(ev.Item3, c4) + "|" + Col("", c5) + "|");
             sb.AppendLine();
 
             sb.AppendLine("[REACT]");
-            sb.AppendLine(Col("<objType>", c1) + "|" + Col("<comand-type>", c2) + "|" + Col("<>", c3) + "|" + Col("<>", c4) + "|" + Col("<comand-name>", c5) + "|" + Col("<>", c6) + "|");
-            sb.AppendLine();
+            foreach (var ev in events)
+                sb.AppendLine(Col(ev.Item1, c1) + "|" + Col(ev.Item2, c2) + "|" + Col("", c3) + "|" + Col("", c4) + "|" + Col(ev.Item3, c5) + "|" + Col("", c6) + "|");
             sb.AppendLine();
 
+            var stateRows = BuildStateRows(events);
+            int cs2 = Math.Max(20, stateRows.Count > 0 ? stateRows.Max(r => r.Item2.Length) + 2 : 20);
+            int cs3 = 7;
+            int cs6 = Math.Max(16, stateRows.Count > 0 ? stateRows.Max(r => r.Item4.Length) + 2 : 16);
+
             sb.AppendLine("[STATE]");
-            sb.AppendLine(Col("<objType>", c1) + "|" + Col("<state>", c2) + "|" + Col("<shortName>", c3) + "|" + Col("<>", c4) + "|" + Col("<>", c5) + "|" + Col("<Descripcion/name>", c6) + "|");
-            sb.AppendLine();
+            foreach (var sr in stateRows)
+                sb.AppendLine(Col(sr.Item1, c1) + "|" + Col(sr.Item2, cs2) + "|" + Col(sr.Item3, cs3) + "|" + Col("", c4) + "|" + Col("", c5) + "|" + Col(sr.Item4, cs6) + "|");
             sb.AppendLine();
 
             sb.AppendLine("[MARKER]");
             sb.AppendLine();
 
+            var stateRuleRows = BuildStateRuleRows(events);
+            int csr2 = Math.Max(20, stateRuleRows.Count > 0 ? stateRuleRows.Max(r => r.Item2.Length) + 2 : 20);
+            int csr3 = Math.Max(16, stateRuleRows.Count > 0 ? stateRuleRows.Max(r => r.Item3.Length) + 2 : 16);
+            int csr4 = Math.Max(16, stateRuleRows.Count > 0 ? stateRuleRows.Max(r => r.Item4.Length) + 2 : 16);
+
             sb.AppendLine("[STATE_RULE]");
-            sb.AppendLine(Col("<objType>", c1) + "|" + Col("<trigguer Event>", c2) + "|" + Col("<FromStatus>", c3) + "|" + Col("<To State>", c4) + "|");
+            foreach (var sr in stateRuleRows)
+                sb.AppendLine(Col(sr.Item1, c1) + "|" + Col(sr.Item2, csr2) + "|" + Col(sr.Item3, csr3) + "|" + Col(sr.Item4, csr4) + "|");
             sb.AppendLine();
 
-            File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
+            File.WriteAllText(outputPath, sb.ToString(), new UTF8Encoding(false));
             Console.WriteLine("DDI file exported to: " + outputPath);
+        }
+
+        public void ExportDbiFile(string outputPath, ICollection<string> allowedChildTypes = null)
+        {
+            Console.WriteLine("Building DBI file...");
+
+            var structure = BuildIntegrationChildren(null, isFirstLevel: true, filter: allowedChildTypes);
+            var types = new List<string>();
+            CollectUniqueTypes(structure, types);
+
+            var sb = new StringBuilder();
+
+            foreach (var t in types)
+            {
+                sb.AppendLine("[OBJ_" + t + "]");
+                sb.AppendLine("id, CHAR, 16");
+                sb.AppendLine("name, CHAR, 60");
+                sb.AppendLine("parent_id, CHAR, 60");
+                sb.AppendLine("flags, INTEGER");
+                sb.AppendLine("camera_name, TEXT");
+                sb.AppendLine("camera_id, CHAR, 60");
+                sb.AppendLine("priority, CHAR, 60");
+                sb.AppendLine();
+            }
+
+            File.WriteAllText(outputPath, sb.ToString(), new UTF8Encoding(false));
+            Console.WriteLine("DBI file exported to: " + outputPath);
         }
 
         private static void CollectUniqueTypes(List<object> items, List<string> types)
@@ -167,6 +223,210 @@ namespace ISS.OPCMonitor
                 if (item.ContainsKey("children"))
                     CollectUniqueTypes((List<object>)item["children"], types);
             }
+        }
+
+        private List<Tuple<string, string, string>> CollectEventRows(ICollection<string> allowedChildTypes = null)
+        {
+            var events    = new List<Tuple<string, string, string>>();
+            var doneTypes = new HashSet<string>();
+            List<object>  cmdProps = null;
+
+            // Root → panels → type branches
+            foreach (var panel in BrowseElements(null))
+            {
+                if (!panel.HasChildren) continue;
+
+                foreach (var typeBranch in BrowseElements(new ItemIdentifier(panel.ItemName)))
+                {
+                    if (!typeBranch.HasChildren) continue;
+
+                    if (allowedChildTypes != null && allowedChildTypes.Count > 0
+                        && !allowedChildTypes.Contains(typeBranch.Name))
+                        continue;
+
+                    string objType = _prefix + Normalize(typeBranch.Name);
+                    if (doneTypes.Contains(objType)) continue;
+
+                    // Search items up to depth 2 under the type branch
+                    int detectorTypeId = FindDetectorTypeId(new ItemIdentifier(typeBranch.ItemName), maxDepth: 2);
+                    if (detectorTypeId == 0) continue;
+
+                    if (cmdProps == null)
+                        cmdProps = GetItemProperties("CMD");
+
+                    foreach (Dictionary<string, object> cmdProp in cmdProps)
+                    {
+                        if (System.Convert.ToInt32(cmdProp["code"]) != detectorTypeId) continue;
+
+                        string xmlValue = cmdProp["value"]?.ToString() ?? "";
+                        if (!string.IsNullOrEmpty(xmlValue))
+                            foreach (var cmd in ParseCommands(xmlValue))
+                                events.Add(Tuple.Create(objType, cmd.Item1, cmd.Item2));
+                        break;
+                    }
+
+                    doneTypes.Add(objType);
+                }
+            }
+
+            return events;
+        }
+
+        private int FindDetectorTypeId(ItemIdentifier parentId, int maxDepth)
+        {
+            if (maxDepth < 0) return 0;
+
+            foreach (var elem in BrowseElements(parentId))
+            {
+                if (elem.IsItem)
+                {
+                    foreach (Dictionary<string, object> p in GetItemProperties(elem.ItemName))
+                    {
+                        if (string.Equals(p["description"]?.ToString(), "DetectorTypeID", StringComparison.OrdinalIgnoreCase)
+                            && int.TryParse(p["value"]?.ToString(), out int tid) && tid > 0)
+                            return tid;
+                    }
+                }
+
+                if (elem.HasChildren)
+                {
+                    int tid = FindDetectorTypeId(new ItemIdentifier(elem.ItemName), maxDepth - 1);
+                    if (tid > 0) return tid;
+                }
+            }
+
+            return 0;
+        }
+
+        private BrowseElement[] BrowseElements(ItemIdentifier parentId)
+        {
+            BrowsePosition pos;
+            try { return _server.Browse(parentId, FilterAll, out pos) ?? new BrowseElement[0]; }
+            catch { return new BrowseElement[0]; }
+        }
+
+        private static List<Tuple<string, string>> ParseCommands(string xml)
+        {
+            var result = new List<Tuple<string, string>>();
+            foreach (Match m in Regex.Matches(xml, @"Name=""([^""]+)""[^>]*Description=""([^""]+)"""))
+                result.Add(Tuple.Create(m.Groups[1].Value, m.Groups[2].Value));
+            return result;
+        }
+
+        private static readonly Dictionary<string, Tuple<string, string, string>> CommandToState =
+            new Dictionary<string, Tuple<string, string, string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "ACK",                 Tuple.Create("ACKNOWLEDGED", "ACK", "Reconocido") },
+                { "RESET",               Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "RESET_PANEL",         Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "RESET_TRANS",         Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "RESET_SCOPE",         Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "RESET_NETWORK_SCOPE", Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "BYPASS_ON",           Tuple.Create("BYPASSED",     "BYP", "Anulado") },
+                { "BYPASS_OFF",          Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "BYPASS_SCOPE_ON",     Tuple.Create("BYPASSED",     "BYP", "Anulado") },
+                { "BYPASS_SCOPE_OFF",    Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "ISOLATE_ON",          Tuple.Create("ISOLATED",     "ISO", "Aislado") },
+                { "ISOLATE_OFF",         Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "WALKTEST_ON",         Tuple.Create("WALKTEST",     "WLK", "Prueba en sitio") },
+                { "WALKTEST_OFF",        Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "ACTIVATE_ON",         Tuple.Create("ACTIVATED",    "ACT", "Activado") },
+                { "ACTIVATE_OFF",        Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "ALTERSET_ON",         Tuple.Create("ALTERSET",     "ALT", "Ajuste alternativo") },
+                { "ALTERSET_OFF",        Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "SILENCE_ON",          Tuple.Create("SILENCED",     "SIL", "Silenciado") },
+                { "SILENCE_OFF",         Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "SILENCE_ON_SCOPE",    Tuple.Create("SILENCED",     "SIL", "Silenciado") },
+                { "SILENCE_OFF_SCOPE",   Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "DRILL_ON",            Tuple.Create("DRILL",        "DRL", "Simulacro") },
+                { "DRILL_OFF",           Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "AUTOMATIC",           Tuple.Create("AUTOMATIC",    "AUT", "Automático") },
+                { "BYBUTTON_ON",         Tuple.Create("ACTIVATED",    "ACT", "Activado") },
+                { "BYBUTTON_OFF",        Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "TEST",                Tuple.Create("TEST",         "TST", "Prueba") },
+                { "DAY_ON",              Tuple.Create("DAY_MODE",     "DAY", "Modo día") },
+                { "DAY_OFF",             Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "OUTTOFPE_ON_PANEL",   Tuple.Create("OUT_OF_FPE",   "OFP", "Fuera de protección") },
+                { "OUTTOFPE_OFF_PANEL",  Tuple.Create("NORMAL",       "NRM", "Normal") },
+                { "OUTTOFPE_ON_SCOPE",   Tuple.Create("OUT_OF_FPE",   "OFP", "Fuera de protección") },
+                { "OUTTOFPE_OFF_SCOPE",  Tuple.Create("NORMAL",       "NRM", "Normal") },
+            };
+
+        private static readonly Tuple<string, string, string>[] BaseStates =
+        {
+            Tuple.Create("NORMAL", "NRM", "Normal"),
+            Tuple.Create("ALARM",  "ALM", "Alarma"),
+            Tuple.Create("FAULT",  "FLT", "Falla"),
+        };
+
+        private static List<Tuple<string, string, string, string>> BuildStateRows(
+            List<Tuple<string, string, string>> events)
+        {
+            var byType  = new Dictionary<string, List<Tuple<string, string, string>>>();
+            var typeOrder = new List<string>();
+
+            foreach (var ev in events)
+            {
+                if (!byType.ContainsKey(ev.Item1))
+                {
+                    byType[ev.Item1] = new List<Tuple<string, string, string>>(BaseStates);
+                    typeOrder.Add(ev.Item1);
+                }
+
+                Tuple<string, string, string> state;
+                if (!CommandToState.TryGetValue(ev.Item2, out state) || state == null) continue;
+
+                if (!byType[ev.Item1].Exists(s => s.Item1 == state.Item1))
+                    byType[ev.Item1].Add(state);
+            }
+
+            var result = new List<Tuple<string, string, string, string>>();
+            foreach (var objType in typeOrder)
+                foreach (var s in byType[objType])
+                    result.Add(Tuple.Create(objType, s.Item1, s.Item2, s.Item3));
+            return result;
+        }
+
+        private static readonly Dictionary<string, string> OffCommandFromState =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "BYPASS_OFF",          "BYPASSED"    },
+                { "BYPASS_SCOPE_OFF",    "BYPASSED"    },
+                { "ISOLATE_OFF",         "ISOLATED"    },
+                { "WALKTEST_OFF",        "WALKTEST"    },
+                { "ACTIVATE_OFF",        "ACTIVATED"   },
+                { "BYBUTTON_OFF",        "ACTIVATED"   },
+                { "ALTERSET_OFF",        "ALTERSET"    },
+                { "SILENCE_OFF",         "SILENCED"    },
+                { "SILENCE_OFF_SCOPE",   "SILENCED"    },
+                { "DRILL_OFF",           "DRILL"       },
+                { "DAY_OFF",             "DAY_MODE"    },
+                { "OUTTOFPE_OFF_PANEL",  "OUT_OF_FPE"  },
+                { "OUTTOFPE_OFF_SCOPE",  "OUT_OF_FPE"  },
+            };
+
+        private static List<Tuple<string, string, string, string>> BuildStateRuleRows(
+            List<Tuple<string, string, string>> events)
+        {
+            var result = new List<Tuple<string, string, string, string>>();
+            var seen   = new HashSet<string>();
+
+            foreach (var ev in events)
+            {
+                string key = ev.Item1 + "|" + ev.Item2;
+                if (!seen.Add(key)) continue;
+
+                Tuple<string, string, string> stateInfo;
+                if (!CommandToState.TryGetValue(ev.Item2, out stateInfo) || stateInfo == null) continue;
+
+                string toState = stateInfo.Item1;
+                string fromState;
+                OffCommandFromState.TryGetValue(ev.Item2, out fromState);
+
+                result.Add(Tuple.Create(ev.Item1, ev.Item2, fromState ?? "", toState));
+            }
+
+            return result;
         }
 
         private static string Col(string value, int width)
@@ -231,7 +491,9 @@ namespace ISS.OPCMonitor
             return value.ToString();
         }
 
-        private List<object> BuildIntegrationChildren(ItemIdentifier parentId, bool isFirstLevel = false)
+        private List<object> BuildIntegrationChildren(ItemIdentifier parentId, bool isFirstLevel = false,
+            bool applyFilter = false, ICollection<string> filter = null, string parentName = null,
+            int depth = 0)
         {
             BrowsePosition pos;
             BrowseElement[] elements;
@@ -256,12 +518,30 @@ namespace ISS.OPCMonitor
                 if (!elem.HasChildren)
                     continue;
 
-                var children = BuildIntegrationChildren(new ItemIdentifier(elem.ItemName));
+                if (applyFilter && filter != null && filter.Count > 0
+                    && !filter.Contains(elem.Name))
+                    continue;
+
+                string typeName = IsNumeric(elem.Name)
+                    ? (parentName ?? (_prefix + "ITEM")) + "_G" + elem.Name
+                    : _prefix + StripDigits(Normalize(elem.Name));
+
+                // depth 0 = root, depth 1 = panel children (5 tipos, sin recursión adicional)
+                List<object> children = new List<object>();
+                if (depth < 1)
+                {
+                    children = BuildIntegrationChildren(
+                        new ItemIdentifier(elem.ItemName),
+                        applyFilter: isFirstLevel,
+                        filter: filter,
+                        parentName: typeName,
+                        depth: depth + 1);
+                }
 
                 var node = new Dictionary<string, object>();
                 if (isFirstLevel)
                     node["parent"] = "INTEGRATION";
-                node["type"] = elem.Name;
+                node["type"] = typeName;
                 if (children.Count > 0)
                     node["children"] = children;
 
@@ -269,6 +549,27 @@ namespace ISS.OPCMonitor
             }
 
             return result;
+        }
+
+        private static string StripDigits(string value)
+        {
+            var sb = new StringBuilder();
+            foreach (char c in value)
+                if (!char.IsDigit(c)) sb.Append(c);
+            return sb.ToString().Trim(' ', '-', '_');
+        }
+
+        private static string Normalize(string value)
+        {
+            return value?.ToUpperInvariant().Replace(' ', '_') ?? string.Empty;
+        }
+
+        private static bool IsNumeric(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return false;
+            foreach (char c in value)
+                if (!char.IsDigit(c)) return false;
+            return true;
         }
 
         private List<object> BuildChildren(ItemIdentifier parentId, string parentPosId)
@@ -387,6 +688,488 @@ namespace ISS.OPCMonitor
                 Console.WriteLine("GetProperties error for '" + itemName + "': " + ex.Message);
                 return new List<object>();
             }
+        }
+
+        // ══════════════════════════════════════════════════════
+        // Exportación del árbol completo (ramas + ítems)
+        // ══════════════════════════════════════════════════════
+
+        public string ExportTreeToJson(string outputFolder = null)
+        {
+            if (_server == null || !_server.IsConnected)
+                throw new InvalidOperationException("No hay conexión activa con el servidor OPC.");
+
+            if (string.IsNullOrWhiteSpace(outputFolder))
+                outputFolder = AppDomain.CurrentDomain.BaseDirectory;
+
+            try
+            {
+                Directory.CreateDirectory(outputFolder);
+
+                var timestamp = DateTime.Now;
+                var fileName  = $"treeAvenarGroup_{timestamp:yyyyMMdd_HHmmss}.json";
+                var filePath  = Path.Combine(outputFolder, fileName);
+
+                var root = BuildRawTreeNode(null);
+                var json = SerializeRawTree(root, _serverUrl, timestamp);
+
+                File.WriteAllText(filePath, json, new UTF8Encoding(false));
+                Console.WriteLine($"[OPC] Árbol exportado: {filePath}");
+                return filePath;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al exportar árbol: {ex.Message}");
+                return null;
+            }
+        }
+
+        private OpcTreeNode BuildRawTreeNode(ItemIdentifier nodeId)
+        {
+            var node = new OpcTreeNode
+            {
+                Name     = RawLeafName(nodeId?.ItemName),
+                ItemName = nodeId?.ItemName ?? string.Empty,
+                IsItem   = false
+            };
+
+            try
+            {
+                BrowsePosition pos;
+
+                var branches = _server.Browse(nodeId, FilterBranch, out pos);
+                if (branches != null)
+                    foreach (var b in branches)
+                        node.Children.Add(BuildRawTreeNode(new ItemIdentifier(b.ItemName)));
+
+                var items = _server.Browse(nodeId, FilterItem, out pos);
+                if (items != null)
+                    foreach (var item in items)
+                        node.Children.Add(new OpcTreeNode
+                        {
+                            Name     = RawLeafName(item.ItemName),
+                            ItemName = item.ItemName,
+                            IsItem   = true
+                        });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al explorar nodo '{node.ItemName}': {ex.Message}");
+            }
+
+            return node;
+        }
+
+        private static string SerializeRawTree(OpcTreeNode root, string serverUrl, DateTime timestamp)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine($"  \"createdAt\": \"{timestamp:yyyy-MM-ddTHH:mm:ss}\",");
+            sb.AppendLine($"  \"server\": {ToJsonLiteral(serverUrl)},");
+            sb.Append("  \"tree\": ");
+            AppendRawNode(sb, root, 1);
+            sb.AppendLine();
+            sb.Append("}");
+            return sb.ToString();
+        }
+
+        private static void AppendRawNode(StringBuilder sb, OpcTreeNode node, int depth)
+        {
+            var pad  = new string(' ', depth * 2);
+            var pad1 = new string(' ', (depth + 1) * 2);
+
+            sb.AppendLine("{");
+            sb.AppendLine($"{pad1}\"name\": {ToJsonLiteral(node.Name)},");
+            sb.AppendLine($"{pad1}\"itemName\": {ToJsonLiteral(node.ItemName)},");
+            sb.AppendLine($"{pad1}\"isItem\": {(node.IsItem ? "true" : "false")},");
+            sb.Append($"{pad1}\"children\": ");
+
+            if (node.Children.Count == 0)
+            {
+                sb.AppendLine("[]");
+            }
+            else
+            {
+                sb.AppendLine("[");
+                for (int i = 0; i < node.Children.Count; i++)
+                {
+                    sb.Append(pad1 + "  ");
+                    AppendRawNode(sb, node.Children[i], depth + 2);
+                    sb.AppendLine(i < node.Children.Count - 1 ? "," : string.Empty);
+                }
+                sb.AppendLine($"{pad1}]");
+            }
+
+            sb.Append($"{pad}}}");
+        }
+
+        private static string RawLeafName(string itemName) =>
+            string.IsNullOrEmpty(itemName) ? "root" : itemName.Split('.').Last();
+
+        private sealed class OpcTreeNode
+        {
+            public string            Name     { get; set; }
+            public string            ItemName { get; set; }
+            public bool              IsItem   { get; set; }
+            public List<OpcTreeNode> Children { get; } = new List<OpcTreeNode>();
+        }
+
+        // ══════════════════════════════════════════════════════
+        // Exportación del árbol limpio (solo ítems + propiedades)
+        // ══════════════════════════════════════════════════════
+
+        public string ExportItemTreeToJson(string outputFolder = null)
+        {
+            if (_server == null || !_server.IsConnected)
+                throw new InvalidOperationException("No hay conexión activa con el servidor OPC.");
+
+            if (string.IsNullOrWhiteSpace(outputFolder))
+                outputFolder = AppDomain.CurrentDomain.BaseDirectory;
+
+            try
+            {
+                Directory.CreateDirectory(outputFolder);
+
+                var timestamp = DateTime.Now;
+                var fileName  = $"treeAvenarGroup_clean_{timestamp:yyyyMMdd_HHmmss}.json";
+                var filePath  = Path.Combine(outputFolder, fileName);
+
+                var rawRoot   = BuildRawTreeNode(null);
+                var cleanRoot = BuildCleanNode(rawRoot);
+                AssignNodeIds(cleanRoot);
+                var json      = SerializeCleanItemTree(cleanRoot, _serverUrl, timestamp);
+
+                File.WriteAllText(filePath, json, new UTF8Encoding(false));
+                Console.WriteLine($"[OPC] Árbol limpio exportado: {filePath}");
+
+                ExportCommandsToJson(outputFolder, timestamp);
+
+                return filePath;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al exportar árbol limpio: {ex.Message}");
+                return null;
+            }
+        }
+
+        private CleanOpcNode BuildCleanNode(OpcTreeNode rawNode)
+        {
+            if (rawNode.IsItem)
+            {
+                return new CleanOpcNode
+                {
+                    Name        = rawNode.Name,
+                    ElementType = "item",
+                    Properties  = FetchAllNodeProperties(rawNode.ItemName)
+                };
+            }
+
+            var orderedKeys = new List<string>();
+            var mergeMap    = new Dictionary<string, CleanOpcNode>(StringComparer.Ordinal);
+
+            foreach (var child in rawNode.Children)
+            {
+                var cleanChild = BuildCleanNode(child);
+                if (cleanChild == null) continue;
+
+                if (mergeMap.TryGetValue(cleanChild.Name, out var existing))
+                {
+                    if ((existing.Properties == null || existing.Properties.Count == 0) && cleanChild.Properties?.Count > 0)
+                        existing.Properties = cleanChild.Properties;
+
+                    foreach (var grandchild in cleanChild.Children)
+                        existing.Children.Add(grandchild);
+
+                    if (existing.Children.Count > 0)
+                        existing.ElementType = "branch";
+                }
+                else
+                {
+                    mergeMap[cleanChild.Name] = cleanChild;
+                    orderedKeys.Add(cleanChild.Name);
+                }
+            }
+
+            if (orderedKeys.Count == 0) return null;
+
+            var node = new CleanOpcNode { Name = rawNode.Name, ElementType = "branch" };
+            foreach (var key in orderedKeys)
+                node.Children.Add(mergeMap[key]);
+
+            return node;
+        }
+
+        private static void AssignNodeIds(CleanOpcNode node, string parentId = "")
+        {
+            for (int i = 0; i < node.Children.Count; i++)
+            {
+                var child = node.Children[i];
+                child.Id = string.IsNullOrEmpty(parentId)
+                    ? (i + 1).ToString()
+                    : $"{parentId}.{i + 1}";
+                AssignNodeIds(child, child.Id);
+            }
+        }
+
+        private List<OpcItemProperty> FetchAllNodeProperties(string itemName)
+        {
+            try
+            {
+                var results = _server.GetProperties(
+                    new[] { new ItemIdentifier(itemName) }, null, true);
+
+                if (results == null || results.Length == 0)
+                    return new List<OpcItemProperty>();
+
+                var props = new List<OpcItemProperty>();
+                foreach (ItemProperty prop in results[0])
+                {
+                    if (!prop.ResultID.Succeeded()) continue;
+
+                    props.Add(new OpcItemProperty
+                    {
+                        Code        = prop.ID.Code,
+                        Description = string.IsNullOrWhiteSpace(prop.Description)
+                            ? $"property_{prop.ID.Code}"
+                            : prop.Description,
+                        Value       = prop.Value?.ToString() ?? string.Empty
+                    });
+                }
+                return props;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al leer propiedades de '{itemName}': {ex.Message}");
+                return new List<OpcItemProperty>();
+            }
+        }
+
+        private static string SerializeCleanItemTree(CleanOpcNode root, string serverUrl, DateTime timestamp)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine($"  \"createdAt\": \"{timestamp:yyyy-MM-ddTHH:mm:ss}\",");
+            sb.AppendLine($"  \"server\": {ToJsonLiteral(serverUrl)},");
+            sb.Append("  \"tree\": ");
+            AppendCleanItemNode(sb, root, 1);
+            sb.AppendLine();
+            sb.Append("}");
+            return sb.ToString();
+        }
+
+        private static void AppendCleanItemNode(StringBuilder sb, CleanOpcNode node, int depth)
+        {
+            var pad  = new string(' ', depth * 2);
+            var pad1 = new string(' ', (depth + 1) * 2);
+
+            sb.AppendLine("{");
+            sb.AppendLine($"{pad1}\"name\": {ToJsonLiteral(node.Name)},");
+            sb.AppendLine($"{pad1}\"id\": {ToJsonLiteral(node.Id)},");
+            sb.AppendLine($"{pad1}\"elementType\": \"{node.ElementType}\",");
+
+            var props = node.Properties ?? new List<OpcItemProperty>();
+            sb.AppendLine($"{pad1}\"properties\": [");
+            for (int i = 0; i < props.Count; i++)
+            {
+                var comma = i < props.Count - 1 ? "," : string.Empty;
+                var p = props[i];
+                sb.AppendLine($"{pad1}  {{ \"code\": {p.Code}, \"description\": {ToJsonLiteral(p.Description)}, \"value\": {ToJsonLiteral(p.Value)} }}{comma}");
+            }
+            sb.AppendLine($"{pad1}],");
+
+            sb.Append($"{pad1}\"children\": ");
+            if (node.Children.Count == 0)
+            {
+                sb.AppendLine("[]");
+            }
+            else
+            {
+                sb.AppendLine("[");
+                for (int i = 0; i < node.Children.Count; i++)
+                {
+                    sb.Append(pad1 + "  ");
+                    AppendCleanItemNode(sb, node.Children[i], depth + 2);
+                    sb.AppendLine(i < node.Children.Count - 1 ? "," : string.Empty);
+                }
+                sb.AppendLine($"{pad1}]");
+            }
+
+            sb.Append($"{pad}}}");
+        }
+
+        private sealed class CleanOpcNode
+        {
+            public string Name        { get; set; }
+            public string Id          { get; set; }
+            public string ElementType { get; set; }
+            public List<OpcItemProperty> Properties { get; set; }
+            public List<CleanOpcNode>    Children   { get; } = new List<CleanOpcNode>();
+        }
+
+        private sealed class OpcItemProperty
+        {
+            public int    Code        { get; set; }
+            public string Description { get; set; }
+            public string Value       { get; set; }
+        }
+
+        // ══════════════════════════════════════════════════════
+        // Exportación de comandos CMD
+        // ══════════════════════════════════════════════════════
+
+        private void ExportCommandsToJson(string outputFolder, DateTime timestamp)
+        {
+            try
+            {
+                var fileName = $"commands_{timestamp:yyyyMMdd_HHmmss}.json";
+                var filePath = Path.Combine(outputFolder, fileName);
+
+                var props = FetchCmdItemProperties("CMD");
+                var json  = SerializeCmdJson(props, _serverUrl, timestamp);
+
+                File.WriteAllText(filePath, json, new UTF8Encoding(false));
+                Console.WriteLine($"[OPC] Comandos CMD exportados: {filePath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al exportar comandos CMD: {ex.Message}");
+            }
+        }
+
+        private List<CmdProperty> FetchCmdItemProperties(string itemName)
+        {
+            try
+            {
+                var results = _server.GetProperties(
+                    new[] { new ItemIdentifier(itemName) }, null, true);
+
+                if (results == null || results.Length == 0)
+                    return new List<CmdProperty>();
+
+                var props = new List<CmdProperty>();
+                foreach (ItemProperty prop in results[0])
+                {
+                    if (!prop.ResultID.Succeeded()) continue;
+
+                    var cmdProp = new CmdProperty
+                    {
+                        Code        = prop.ID.Code,
+                        Description = string.IsNullOrWhiteSpace(prop.Description)
+                            ? $"property_{prop.ID.Code}"
+                            : prop.Description
+                    };
+
+                    var raw = prop.Value?.ToString() ?? string.Empty;
+                    if (raw.TrimStart().StartsWith("<"))
+                    {
+                        try
+                        {
+                            var doc = XDocument.Parse(raw);
+                            XNamespace ns = "file:///S3K/Proxyverwalter";
+                            cmdProp.Commands = doc.Descendants(ns + "Command")
+                                .ToDictionary(
+                                    e => e.Attribute("Name")?.Value ?? "(unnamed)",
+                                    e => e.ToString());
+                        }
+                        catch
+                        {
+                            cmdProp.Value = raw;
+                        }
+                    }
+                    else
+                    {
+                        cmdProp.Value = raw;
+                    }
+
+                    props.Add(cmdProp);
+                }
+                return props;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al leer propiedades de '{itemName}': {ex.Message}");
+                return new List<CmdProperty>();
+            }
+        }
+
+        private static string SerializeCmdJson(List<CmdProperty> props, string serverUrl, DateTime timestamp)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine($"  \"createdAt\": \"{timestamp:yyyy-MM-ddTHH:mm:ss}\",");
+            sb.AppendLine($"  \"server\": {ToJsonLiteral(serverUrl)},");
+            sb.AppendLine("  \"cmd\": [");
+
+            for (int i = 0; i < props.Count; i++)
+            {
+                var p     = props[i];
+                var comma = i < props.Count - 1 ? "," : string.Empty;
+
+                if (p.Commands != null)
+                {
+                    sb.AppendLine("    {");
+                    sb.AppendLine($"      \"code\": {p.Code},");
+                    sb.AppendLine($"      \"description\": {ToJsonLiteral(p.Description)},");
+                    sb.AppendLine("      \"commands\": {");
+
+                    var cmdList = p.Commands.ToList();
+                    for (int j = 0; j < cmdList.Count; j++)
+                    {
+                        var cmdComma = j < cmdList.Count - 1 ? "," : string.Empty;
+                        sb.AppendLine($"        {ToJsonLiteral(cmdList[j].Key)}: {ToJsonLiteral(cmdList[j].Value)}{cmdComma}");
+                    }
+
+                    sb.AppendLine("      }");
+                    sb.AppendLine($"    }}{comma}");
+                }
+                else
+                {
+                    sb.AppendLine($"    {{ \"code\": {p.Code}, \"description\": {ToJsonLiteral(p.Description)}, \"value\": {ToJsonLiteral(p.Value)} }}{comma}");
+                }
+            }
+
+            sb.AppendLine("  ]");
+            sb.Append("}");
+            return sb.ToString();
+        }
+
+        private sealed class CmdProperty
+        {
+            public int    Code        { get; set; }
+            public string Description { get; set; }
+            public string Value       { get; set; }
+            public Dictionary<string, string> Commands { get; set; }
+        }
+
+        // ══════════════════════════════════════════════════════
+        // Helper JSON compartido
+        // ══════════════════════════════════════════════════════
+
+        private static string ToJsonLiteral(string value)
+        {
+            if (value == null) return "null";
+            var sb = new StringBuilder(value.Length + 2);
+            sb.Append('"');
+            foreach (char c in value)
+            {
+                switch (c)
+                {
+                    case '"':  sb.Append("\\\""); break;
+                    case '\\': sb.Append("\\\\"); break;
+                    case '\n': sb.Append("\\n");  break;
+                    case '\r': sb.Append("\\r");  break;
+                    case '\t': sb.Append("\\t");  break;
+                    default:
+                        if (c < 0x20)
+                            sb.Append($"\\u{(int)c:x4}");
+                        else
+                            sb.Append(c);
+                        break;
+                }
+            }
+            sb.Append('"');
+            return sb.ToString();
         }
 
         // Converts compact JSON from JavaScriptSerializer into indented JSON.
