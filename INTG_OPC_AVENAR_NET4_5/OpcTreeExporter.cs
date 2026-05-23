@@ -21,6 +21,8 @@ namespace ISS.OPCMonitor
         private readonly string _prefix;
         private readonly string _serverUrl;
 
+        private Dictionary<int, Dictionary<string, string>> _cmdCache;
+
         private static readonly BrowseFilters FilterAll    = new BrowseFilters { BrowseFilter = browseFilter.all };
         private static readonly BrowseFilters FilterBranch = new BrowseFilters { BrowseFilter = browseFilter.branch };
         private static readonly BrowseFilters FilterItem   = new BrowseFilters { BrowseFilter = browseFilter.item };
@@ -81,6 +83,8 @@ namespace ISS.OPCMonitor
                     var raw = prop.Value?.ToString() ?? string.Empty;
                     if (raw.TrimStart().StartsWith("<"))
                     {
+                        cmdProp.IsXml    = true;
+                        cmdProp.Commands = new Dictionary<string, string>();
                         try
                         {
                             var doc = XDocument.Parse(raw);
@@ -90,10 +94,7 @@ namespace ISS.OPCMonitor
                                     e => e.Attribute("Name")?.Value ?? "(unnamed)",
                                     e => e.ToString());
                         }
-                        catch
-                        {
-                            cmdProp.Value = raw;
-                        }
+                        catch { }
                     }
                     else
                     {
@@ -124,7 +125,7 @@ namespace ISS.OPCMonitor
                 var p     = props[i];
                 var comma = i < props.Count - 1 ? "," : string.Empty;
 
-                if (p.Commands != null)
+                if (p.IsXml)
                 {
                     sb.AppendLine("    {");
                     sb.AppendLine($"      \"code\": {p.Code},");
@@ -157,6 +158,7 @@ namespace ISS.OPCMonitor
             public int    Code        { get; set; }
             public string Description { get; set; }
             public string Value       { get; set; }
+            public bool   IsXml       { get; set; }
             public Dictionary<string, string> Commands { get; set; }
         }
 
@@ -180,7 +182,10 @@ namespace ISS.OPCMonitor
             };
 
             var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
-            string json = PrettyPrint(serializer.Serialize(root));
+            string json = PrettyPrint(serializer.Serialize(root))
+                .Replace("\\u003c", "<")
+                .Replace("\\u003e", ">")
+                .Replace("\\u0026", "&");
 
             File.WriteAllText(outputPath, json, new UTF8Encoding(false));
             Console.WriteLine("Tree exported to: " + outputPath);
@@ -230,9 +235,14 @@ namespace ISS.OPCMonitor
                 }
             }
 
+            // Items primero, luego branches (branch|item va con branches)
+            var ordered = mergedList
+                .Where(g => g.IsItem && !g.HasChildren)
+                .Concat(mergedList.Where(g => g.HasChildren));
+
             var result = new List<object>();
 
-            foreach (var g in mergedList)
+            foreach (var g in ordered)
             {
                 string elementType = (g.HasChildren && g.IsItem) ? "branch|item"
                     : g.HasChildren ? "branch"
@@ -247,10 +257,23 @@ namespace ISS.OPCMonitor
                 node["id"]          = "";
 
                 if (g.IsItem)
-                    node["properties"] = GetItemProperties(itemName);
+                {
+                    var props = GetItemProperties(itemName);
+                    node["properties"] = props;
+                    node["commands"]   = LookupCommands(props);
+                }
 
                 if (g.HasChildren)
-                    node["children"] = BuildChildren(new ItemIdentifier(g.BranchItemName ?? g.ItemItemName));
+                {
+                    var children = BuildChildren(new ItemIdentifier(g.BranchItemName ?? g.ItemItemName));
+                    node["hasItemChildren"] = children.Cast<Dictionary<string, object>>()
+                        .Any(c => { var et = (string)c["elementType"]; return et == "item" || et == "branch|item"; });
+                    node["children"] = children;
+                }
+                else
+                {
+                    node["hasItemChildren"] = false;
+                }
 
                 result.Add(node);
             }
@@ -277,12 +300,34 @@ namespace ISS.OPCMonitor
                 var props = new List<object>();
                 foreach (ItemProperty prop in propCols[0])
                 {
-                    props.Add(new Dictionary<string, object>
+                    var raw   = prop.Value != null ? prop.Value.ToString() : string.Empty;
+                    var entry = new Dictionary<string, object>
                     {
                         { "code",        prop.ID.Code },
-                        { "description", prop.Description ?? prop.ID.Name?.Name ?? string.Empty },
-                        { "value",       prop.Value != null ? prop.Value.ToString() : string.Empty }
-                    });
+                        { "description", prop.Description ?? prop.ID.Name?.Name ?? string.Empty }
+                    };
+
+                    if (raw.TrimStart().StartsWith("<"))
+                    {
+                        var commands = new Dictionary<string, string>();
+                        try
+                        {
+                            var doc = XDocument.Parse(raw);
+                            XNamespace ns = "file:///S3K/Proxyverwalter";
+                            commands = doc.Descendants(ns + "Command")
+                                .ToDictionary(
+                                    e => e.Attribute("Name")?.Value ?? "(unnamed)",
+                                    e => e.ToString());
+                        }
+                        catch { }
+                        entry["commands"] = commands;
+                    }
+                    else
+                    {
+                        entry["value"] = raw;
+                    }
+
+                    props.Add(entry);
                 }
                 return props;
             }
@@ -291,6 +336,33 @@ namespace ISS.OPCMonitor
                 Console.WriteLine("GetProperties error for '" + itemName + "': " + ex.Message);
                 return new List<object>();
             }
+        }
+
+        private Dictionary<string, string> LookupCommands(List<object> properties)
+        {
+            var detectorProp = properties
+                .Cast<Dictionary<string, object>>()
+                .FirstOrDefault(p => string.Equals(
+                    p["description"]?.ToString(), "DetectorTypeID",
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (detectorProp == null
+                || !int.TryParse(detectorProp["value"]?.ToString(), out int typeId)
+                || typeId <= 0)
+                return new Dictionary<string, string>();
+
+            if (_cmdCache == null)
+            {
+                _cmdCache = new Dictionary<int, Dictionary<string, string>>();
+                foreach (var cmd in FetchCmdItemProperties("CMD"))
+                    if (cmd.Commands != null)
+                        _cmdCache[cmd.Code] = cmd.Commands;
+            }
+
+            Dictionary<string, string> commands;
+            return _cmdCache.TryGetValue(typeId, out commands)
+                ? commands
+                : new Dictionary<string, string>();
         }
 
         private class MergedElement
@@ -551,10 +623,13 @@ namespace ISS.OPCMonitor
                     {
                         if (System.Convert.ToInt32(cmdProp["code"]) != detectorTypeId) continue;
 
-                        string xmlValue = cmdProp["value"]?.ToString() ?? "";
-                        if (!string.IsNullOrEmpty(xmlValue))
-                            foreach (var cmd in ParseCommands(xmlValue))
-                                events.Add(Tuple.Create(objType, cmd.Item1, cmd.Item2));
+                        object commandsObj;
+                        if (cmdProp.TryGetValue("commands", out commandsObj))
+                        {
+                            foreach (var kv in (Dictionary<string, string>)commandsObj)
+                                foreach (var cmd in ParseCommands(kv.Value))
+                                    events.Add(Tuple.Create(objType, cmd.Item1, cmd.Item2));
+                        }
                         break;
                     }
 
@@ -898,6 +973,12 @@ namespace ISS.OPCMonitor
             new Regex(@"\{[^{}\[\]]*\}", RegexOptions.Singleline);
 
         private static string CollapseLeafObjects(string json) =>
-            LeafObjectRegex.Replace(json, m => Regex.Replace(m.Value, @"\s+", " ").Trim());
+            LeafObjectRegex.Replace(json, m =>
+            {
+                var collapsed = Regex.Replace(m.Value, @"\s+", " ").Trim();
+                // Solo colapsa si el resultado cabe en una línea razonable.
+                // Objetos grandes como "commands" quedan expandidos.
+                return collapsed.Length <= 150 ? collapsed : m.Value;
+            });
     }
 }

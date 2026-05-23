@@ -48,33 +48,33 @@ namespace INTG_OPC_AVENAR_NET4_5
                 exporter.ExportCleanTreeToJson(exporterPath);
                 Console.WriteLine($"Path arbol exportador {exporterPath}");
 
-                var commandPath = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    $"commands_{DateTime.Now:yyyyMMdd_HHmmss}.json");
-                exporter.ExportCommandsToJson(commandPath);
-                Console.WriteLine($"Path comandos exportados {commandPath}");
+                //var commandPath = Path.Combine(
+                //    AppDomain.CurrentDomain.BaseDirectory,
+                //    $"commands_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+                //exporter.ExportCommandsToJson(commandPath);
+                //Console.WriteLine($"Path comandos exportados {commandPath}");
 
                 // ══════════════════════════════════════════════════════════════════
                 // Generacion de Archivos de Integracion (Integration JSON, DDI y DBI)
                 // ══════════════════════════════════════════════════════════════════
 
-                var allowedTypes = new[] { "Detector", "Input", "NAC", "Aux Power", "Buzzer" };
+                //var allowedTypes = new[] { "Detector", "Input", "NAC", "Aux Power", "Buzzer" };
 
-                var integrationPath = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.json");
-                exporter.ExportIntegrationJson(integrationPath, allowedTypes);
-                Console.WriteLine($"Path integration JSON {integrationPath}");
+                //var integrationPath = Path.Combine(
+                //    AppDomain.CurrentDomain.BaseDirectory,
+                //    $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+                //exporter.ExportIntegrationJson(integrationPath, allowedTypes);
+                //Console.WriteLine($"Path integration JSON {integrationPath}");
 
-                var ddiPath = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.ddi");
-                exporter.ExportDdiFile(ddiPath, allowedTypes);
-                Console.WriteLine($"Path DDI {ddiPath}");
+                //var ddiPath = Path.Combine(
+                //    AppDomain.CurrentDomain.BaseDirectory,
+                //    $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.ddi");
+                //exporter.ExportDdiFile(ddiPath, allowedTypes);
+                //Console.WriteLine($"Path DDI {ddiPath}");
 
-                var dbiPath = Path.ChangeExtension(ddiPath, ".dbi");
-                exporter.ExportDbiFile(dbiPath, allowedTypes);
-                Console.WriteLine($"Path DBI {dbiPath}");
+                //var dbiPath = Path.ChangeExtension(ddiPath, ".dbi");
+                //exporter.ExportDbiFile(dbiPath, allowedTypes);
+                //Console.WriteLine($"Path DBI {dbiPath}");
 
                 opcClient.PanelChanged += (values) => OnPanelChanged(values, opcClient);
 
