@@ -191,7 +191,7 @@ namespace ISS.OPCMonitor
             Console.WriteLine("Tree exported to: " + outputPath);
         }
 
-        private List<object> BuildChildren(ItemIdentifier parentId)
+        private List<object> BuildChildren(ItemIdentifier parentId, int depth = 0, string parentIdStr = "")
         {
             BrowsePosition pos;
             BrowseElement[] elements;
@@ -241,6 +241,7 @@ namespace ISS.OPCMonitor
                 .Concat(mergedList.Where(g => g.HasChildren));
 
             var result = new List<object>();
+            int childCounter = 1;
 
             foreach (var g in ordered)
             {
@@ -250,11 +251,35 @@ namespace ISS.OPCMonitor
 
                 string itemName = g.ItemItemName ?? g.BranchItemName ?? "";
 
+                string nodeId;
+                if (depth == 0)
+                {
+                    // Root children: panels get last number from name; CMD/License get ""
+                    nodeId = ExtractLastNumber(g.Name);
+                }
+                else if (depth == 1)
+                {
+                    // Panel children: {panelId}.{counter}
+                    nodeId = string.IsNullOrEmpty(parentIdStr) ? "" : parentIdStr + "." + childCounter;
+                    childCounter++;
+                }
+                else if (depth == 2)
+                {
+                    // Grandchildren: name is always numeric → {parentId}.{name}
+                    nodeId = IsNumeric(g.Name) && !string.IsNullOrEmpty(parentIdStr)
+                        ? parentIdStr + "." + g.Name
+                        : "";
+                }
+                else
+                {
+                    nodeId = "";
+                }
+
                 var node = new Dictionary<string, object>();
                 node["name"]        = g.Name;
                 node["elementType"] = elementType;
                 node["itemName"]    = itemName;
-                node["id"]          = "";
+                node["id"]          = nodeId;
 
                 if (g.IsItem)
                 {
@@ -265,7 +290,7 @@ namespace ISS.OPCMonitor
 
                 if (g.HasChildren)
                 {
-                    var children = BuildChildren(new ItemIdentifier(g.BranchItemName ?? g.ItemItemName));
+                    var children = BuildChildren(new ItemIdentifier(g.BranchItemName ?? g.ItemItemName), depth + 1, nodeId);
                     node["hasItemChildren"] = children.Cast<Dictionary<string, object>>()
                         .Any(c => { var et = (string)c["elementType"]; return et == "item" || et == "branch|item"; });
                     node["children"] = children;
@@ -863,6 +888,13 @@ namespace ISS.OPCMonitor
             foreach (char c in value)
                 if (!char.IsDigit(c)) return false;
             return true;
+        }
+
+        private static string ExtractLastNumber(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "";
+            var matches = Regex.Matches(name, @"\d+");
+            return matches.Count > 0 ? matches[matches.Count - 1].Value : "";
         }
 
         private static string StripDigits(string value)
