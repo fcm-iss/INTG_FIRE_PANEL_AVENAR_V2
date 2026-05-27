@@ -163,12 +163,12 @@ namespace ISS.OPCMonitor
         }
 
         // ══════════════════════════════════════════════════════════════════
-        // 2. ExportCleanTreeToJson  →  treeExporter_*.json
+        // 2. ExportOpcTreeWithPropertiesToJson  →  treeExporter_*.json
         //    Árbol con elementType (branch / item / branch|item),
         //    IDs posicionales y todas las propiedades OPC por ítem.
         // ══════════════════════════════════════════════════════════════════
 
-        public void ExportCleanTreeToJson(string outputPath)
+        public void ExportOpcTreeWithPropertiesToJson(string outputPath)
         {
             Console.WriteLine("Building OPC tree...");
 
@@ -263,15 +263,16 @@ namespace ISS.OPCMonitor
                     nodeId = string.IsNullOrEmpty(parentIdStr) ? "" : parentIdStr + "." + childCounter;
                     childCounter++;
                 }
-                else if (depth == 2)
+                else if (depth == 2 || depth == 3)
                 {
-                    // Grandchildren: name is always numeric → {parentId}.{name}
+                    // Levels 3 and 4: name is numeric → {parentId}.{name}  (max 4 segments total)
                     nodeId = IsNumeric(g.Name) && !string.IsNullOrEmpty(parentIdStr)
                         ? parentIdStr + "." + g.Name
                         : "";
                 }
                 else
                 {
+                    // Beyond level 4: no id assigned
                     nodeId = "";
                 }
 
@@ -304,6 +305,220 @@ namespace ISS.OPCMonitor
             }
 
             return result;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // 2b. BuildItemNameToIdMap  →  Dictionary<ItemName, nodeId>
+        //     Mismo recorrido que BuildChildren pero sin construir JSON:
+        //     devuelve un mapa plano para asignar ClientHandle en la suscripción.
+        // ══════════════════════════════════════════════════════════════════
+
+        // Paso 1 — Punto de entrada: inicializa el mapa y arranca el recorrido desde la raíz.
+        public Dictionary<string, string> BuildItemNameToIdMap()
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            TraverseLevel(parentId: null, depth: 0, parentIdStr: "", map: map);
+            return map;
+        }
+
+        // Paso 2 — Coordina el recorrido de un nivel: obtiene elementos, los fusiona,
+        //          los ordena y delega el cálculo de ID y registro a métodos específicos.
+        private void TraverseLevel(ItemIdentifier parentId, int depth, string parentIdStr,
+                                   Dictionary<string, string> map)
+        {
+            var elements = BrowseLevel(parentId);
+            if (elements == null || elements.Length == 0)
+                return;
+
+            var merged  = MergeElementsByName(elements);
+            var ordered = OrderElementsForTraversal(merged);
+
+            int childCounter = 1;
+            foreach (var element in ordered)
+            {
+                string nodeId = ComputeNodeId(element.Name, depth, parentIdStr, ref childCounter);
+
+                RegisterItemInMap(element, nodeId, map);
+                TraverseChildren(element, depth, nodeId, map);
+            }
+        }
+
+        // Paso 3 — Consulta al servidor OPC los elementos hijos del nodo indicado.
+        private BrowseElement[] BrowseLevel(ItemIdentifier parentId)
+        {
+            try
+            {
+                BrowsePosition pos;
+                return _server.Browse(parentId, FilterAll, out pos);
+            }
+            catch (Exception ex)
+            {
+                var nodeName = parentId?.ItemName ?? "root";
+                Console.WriteLine($"Browse error at '{nodeName}': {ex.Message}");
+                return null;
+            }
+        }
+
+        // Paso 4 — Fusiona elementos con el mismo Name en un solo MergedElement
+        //          (un nodo OPC puede aparecer como branch, como item o como ambos).
+        private static List<MergedElement> MergeElementsByName(BrowseElement[] elements)
+        {
+            var mergedList  = new List<MergedElement>();
+            var nameToIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var elem in elements)
+            {
+                int idx;
+                if (nameToIndex.TryGetValue(elem.Name, out idx))
+                {
+                    var existing = mergedList[idx];
+                    if (elem.HasChildren) { existing.HasChildren = true; existing.BranchItemName = elem.ItemName; }
+                    if (elem.IsItem)      { existing.IsItem = true;      existing.ItemItemName   = elem.ItemName; }
+                }
+                else
+                {
+                    var m = new MergedElement { Name = elem.Name };
+                    if (elem.HasChildren) { m.HasChildren = true; m.BranchItemName = elem.ItemName; }
+                    if (elem.IsItem)      { m.IsItem = true;      m.ItemItemName   = elem.ItemName; }
+                    nameToIndex[elem.Name] = mergedList.Count;
+                    mergedList.Add(m);
+                }
+            }
+
+            return mergedList;
+        }
+
+        // Paso 5 — Ordena: ítems puros primero, luego ramas (branch y branch|item).
+        //          Garantiza que el childCounter del nivel 1 sea determinista.
+        private static IEnumerable<MergedElement> OrderElementsForTraversal(List<MergedElement> merged) =>
+            merged.Where(e => e.IsItem && !e.HasChildren)
+                  .Concat(merged.Where(e => e.HasChildren));
+
+        // Paso 6 — Calcula el ID del nodo según su profundidad y las reglas definidas:
+        //          depth 0 → último número del name  (paneles)
+        //          depth 1 → parentId.contador        (tipos: Error, Detector, etc.)
+        //          depth 2-3 → parentId.name          (instancias numéricas)
+        //          depth ≥4 → ""                      (fuera de especificación)
+        private static string ComputeNodeId(string name, int depth, string parentIdStr,
+                                            ref int childCounter)
+        {
+            if (depth == 0)
+                return ExtractLastNumber(name);
+
+            if (depth == 1)
+            {
+                var id = string.IsNullOrEmpty(parentIdStr) ? "" : parentIdStr + "." + childCounter;
+                childCounter++;
+                return id;
+            }
+
+            if (depth == 2 || depth == 3)
+                return IsNumeric(name) && !string.IsNullOrEmpty(parentIdStr)
+                    ? parentIdStr + "." + name
+                    : "";
+
+            return "";
+        }
+
+        // Paso 7 — Registra en el mapa el ItemName del elemento si es un ítem OPC.
+        private static void RegisterItemInMap(MergedElement element, string nodeId,
+                                              Dictionary<string, string> map)
+        {
+            if (element.IsItem && !string.IsNullOrEmpty(element.ItemItemName))
+                map[element.ItemItemName] = nodeId;
+        }
+
+        // Paso 8 — Si el elemento tiene hijos, desciende recursivamente al siguiente nivel.
+        private void TraverseChildren(MergedElement element, int depth, string nodeId,
+                                      Dictionary<string, string> map)
+        {
+            if (!element.HasChildren)
+                return;
+
+            var childParentId = new ItemIdentifier(element.BranchItemName ?? element.ItemItemName);
+            TraverseLevel(childParentId, depth + 1, nodeId, map);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // 2c. ParseItemIdMapFromJsonFile  →  Dictionary<ItemName, nodeId>
+        //     Lee el JSON exportado por ExportOpcTreeWithPropertiesToJson y
+        //     extrae el mapa ItemName→id sin conectarse al servidor OPC.
+        //     El JSON es la fuente de verdad: lo que ves en el archivo es
+        //     exactamente lo que se asigna como ClientHandle en la suscripción.
+        // ══════════════════════════════════════════════════════════════════
+
+        // Paso 1 — Punto de entrada: orquesta la lectura, deserialización y extracción.
+        public static Dictionary<string, string> ParseItemIdMapFromJsonFile(string jsonFilePath)
+        {
+            var json     = ReadJsonFileContent(jsonFilePath);
+            var rootNode = DeserializeJsonRootNode(json);
+            var map      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            CollectItemIdPairsFromNode(rootNode, map);
+
+            Console.WriteLine($"[OPC] Mapa ItemName→id extraído del JSON: {map.Count} ítems.");
+            return map;
+        }
+
+        // Paso 2 — Lee el texto completo del archivo JSON del disco.
+        private static string ReadJsonFileContent(string path)
+        {
+            if (!File.Exists(path))
+                throw new FileNotFoundException(
+                    $"Archivo de árbol OPC no encontrado: {path}");
+
+            return File.ReadAllText(path, new UTF8Encoding(false));
+        }
+
+        // Paso 3 — Deserializa el texto JSON en un árbol de diccionarios anidados.
+        private static Dictionary<string, object> DeserializeJsonRootNode(string json)
+        {
+            var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+            return serializer.Deserialize<Dictionary<string, object>>(json);
+        }
+
+        // Paso 4 — Visita un nodo del árbol: registra su par ItemName→id
+        //          y desciende recursivamente en sus hijos.
+        private static void CollectItemIdPairsFromNode(Dictionary<string, object> node,
+                                                       Dictionary<string, string> map)
+        {
+            if (node == null) return;
+
+            var itemName = ReadStringField(node, "itemName");
+            var nodeId   = ReadStringField(node, "id");
+
+            RegisterPairIfValid(itemName, nodeId, map);
+            VisitChildNodes(node, map);
+        }
+
+        // Paso 5 — Registra el par en el mapa solo si itemName e id son no vacíos.
+        //          Nodos raíz, paneles y elementos sin itemName quedan excluidos.
+        private static void RegisterPairIfValid(string itemName, string nodeId,
+                                                Dictionary<string, string> map)
+        {
+            if (!string.IsNullOrEmpty(itemName) && !string.IsNullOrEmpty(nodeId))
+                map[itemName] = nodeId;
+        }
+
+        // Paso 6 — Obtiene el array "children" del nodo y visita cada hijo.
+        private static void VisitChildNodes(Dictionary<string, object> node,
+                                            Dictionary<string, string> map)
+        {
+            object childrenObj;
+            if (!node.TryGetValue("children", out childrenObj)) return;
+
+            var children = childrenObj as System.Collections.ArrayList;
+            if (children == null) return;
+
+            foreach (var child in children)
+                CollectItemIdPairsFromNode(child as Dictionary<string, object>, map);
+        }
+
+        // Paso 7 — Lee un campo string del nodo; devuelve "" si no existe o es nulo.
+        private static string ReadStringField(Dictionary<string, object> node, string fieldName)
+        {
+            object value;
+            return node.TryGetValue(fieldName, out value) ? value?.ToString() ?? "" : "";
         }
 
         private List<object> GetItemProperties(string itemName)

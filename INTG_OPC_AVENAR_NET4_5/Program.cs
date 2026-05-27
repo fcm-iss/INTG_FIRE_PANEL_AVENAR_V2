@@ -29,12 +29,6 @@ namespace INTG_OPC_AVENAR_NET4_5
                     return;
                 }
 
-                if (!opcClient.InitializeSubscriptionGroup())
-                {
-                    Console.WriteLine("[APP] No se pudo inicializar el grupo. Abortando.");
-                    return;
-                }
-
                 var ddiPrefix = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
                 var exporter = new OpcTreeExporter(opcClient.Server, ddiPrefix, selectedUrl);
 
@@ -45,8 +39,16 @@ namespace INTG_OPC_AVENAR_NET4_5
                 var exporterPath = Path.Combine(
                     AppDomain.CurrentDomain.BaseDirectory,
                     $"treeExporter_{DateTime.Now:yyyyMMdd_HHmmss}.json");
-                exporter.ExportCleanTreeToJson(exporterPath);
-                Console.WriteLine($"Path arbol exportador {exporterPath}");
+                exporter.ExportOpcTreeWithPropertiesToJson(exporterPath);
+                Console.WriteLine($"[APP] Árbol OPC exportado: {exporterPath}");
+
+                var itemIdMap = OpcTreeExporter.ParseItemIdMapFromJsonFile(exporterPath);
+
+                if (!opcClient.InitializeSubscriptionGroup(itemIdMap: itemIdMap))
+                {
+                    Console.WriteLine("[APP] No se pudo inicializar el grupo. Abortando.");
+                    return;
+                }
 
                 //var commandPath = Path.Combine(
                 //    AppDomain.CurrentDomain.BaseDirectory,
@@ -89,29 +91,29 @@ namespace INTG_OPC_AVENAR_NET4_5
             }
         }
 
-        private static void OnPanelChanged(Opc.Da.ItemValueResult[] values, OpcClient opcClient)
+        private static void OnPanelChanged(Opc.Da.ItemValueResult[] itemsValue, OpcClient opcClient)
         {
-            foreach (var r in values)
+            foreach (var itemValue in itemsValue)
             {
-                if (r.Quality.QualityBits == Opc.Da.qualityBits.bad)
+                if (itemValue.Quality.QualityBits == Opc.Da.qualityBits.bad)
                 {
-                    Console.WriteLine($"[PANEL] Desconectado — ítem: {r.ItemName}");                    
+                    Console.WriteLine($"[PANEL] Desconectado — ítem: {itemValue.ItemName}");                    
                 }
                 else
                 {
-                    Console.WriteLine($"[PANEL] Cambio: {r.ItemName} = {r.Value}");
+                    Console.WriteLine($"[PANEL] Cambio: {itemValue.ItemName} - {itemValue.ClientHandle} = {itemValue.Value}");
                     //obtener propiedades.
                     //otneret pripiedad 5001
-                    var propierties = opcClient.GetItemProperties(r.ItemName, 5001);
+                    //var propierties = opcClient.GetItemProperties(itemValue.ItemName, 5001);
 
                     //buscar comandos 
-                    var comands = opcClient.GetItemProperties("CMD", int.Parse(propierties["DetectorTypeID"]));
+                    //var comands = opcClient.GetItemProperties("CMD", int.Parse(propierties["DetectorTypeID"]));
                     //escribir comandos
 
-                    if (comands != null && comands.ContainsKey("ACTIVATE_OFF"))
-                    {
-                        var results = opcClient.Write("CMD", comands["ACTIVATE_OFF"]);
-                    }
+                    //if (comands != null && comands.ContainsKey("ACTIVATE_OFF"))
+                    //{
+                    //    var results = opcClient.Write("CMD", comands["ACTIVATE_OFF"]);
+                    //}
                 }
 
             }

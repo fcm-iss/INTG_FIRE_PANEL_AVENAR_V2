@@ -168,7 +168,10 @@ namespace INTG_OPC
         /// Descubre todos los ítems del servidor, crea el grupo
         /// de suscripción y registra los ítems en él.
         /// </summary>
-        public bool InitializeSubscriptionGroup(string groupName = "FPA5000_Group", int updateRateMs = 5000)
+        public bool InitializeSubscriptionGroup(
+            string groupName = "FPA5000_Group",
+            int updateRateMs = 5000,
+            Dictionary<string, string> itemIdMap = null)
         {
             ThrowIfNotConnected();
 
@@ -179,7 +182,7 @@ namespace INTG_OPC
                 var groupState = BuildGroupState(groupName, updateRateMs);
                 _subscription = (Subscription)_server.CreateSubscription(groupState);
 
-                var items = DiscoverItems();
+                var items = DiscoverItems(itemIdMap);
 
                 if (items.Length == 0)
                 {
@@ -350,15 +353,14 @@ namespace INTG_OPC
         /// Recorre el árbol OPC y retorna todos los ítems descubiertos,
         /// sin duplicados.
         /// </summary>
-        private Item[] DiscoverItems()
+        private Item[] DiscoverItems(Dictionary<string, string> itemIdMap = null)
         {
             Console.WriteLine("[OPC] Descubriendo ítems...");
 
             var itemList = new List<Item>();
             BrowsePosition position;
 
-            //BrowseRecursive(null, FilterBranch, out position, itemList);
-            BrowseRecursive(null, FilterItem, out position, itemList);
+            BrowseRecursive(null, FilterItem, out position, itemList, itemIdMap);
 
             var unique = itemList
                 .GroupBy(i => i.ItemName)
@@ -376,7 +378,8 @@ namespace INTG_OPC
             ItemIdentifier itemId,
             BrowseFilters filter,
             out BrowsePosition position,
-            List<Item> accumulator)
+            List<Item> accumulator,
+            Dictionary<string, string> itemIdMap = null)
         {
             // Recorre ramas
             var branches = _server.Browse(itemId, filter, out position);
@@ -391,11 +394,12 @@ namespace INTG_OPC
                             new ItemIdentifier(branch.ItemName),
                             FilterBranch,
                             out childPosition,
-                            accumulator);
+                            accumulator,
+                            itemIdMap);
                     }
                     else
                     {
-                        accumulator.Add(new Item { ItemName = branch.ItemName });
+                        accumulator.Add(MakeItem(branch.ItemName, itemIdMap));
                     }
                 }
             }
@@ -407,9 +411,16 @@ namespace INTG_OPC
                 foreach (var child in children)
                 {
                     if (child.IsItem)
-                        accumulator.Add(new Item { ItemName = child.ItemName });
+                        accumulator.Add(MakeItem(child.ItemName, itemIdMap));
                 }
             }
+        }
+
+        private static Item MakeItem(string itemName, Dictionary<string, string> itemIdMap)
+        {
+            string treeId = "";
+            itemIdMap?.TryGetValue(itemName, out treeId);
+            return new Item { ItemName = itemName, ClientHandle = treeId ?? "" };
         }
 
         private void ReleaseGroup()
