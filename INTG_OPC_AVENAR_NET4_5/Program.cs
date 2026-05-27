@@ -30,7 +30,7 @@ namespace INTG_OPC_AVENAR_NET4_5
                 }
 
                 var ddiPrefix = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
-                var exporter = new OpcTreeExporter(opcClient.Server, ddiPrefix, selectedUrl);
+                var exporter = new OpcIntegrationExporter(opcClient.Server, ddiPrefix, selectedUrl);
 
                 // ══════════════════════════════════════════════════════════════════
                 // Generacion de Arbol de estructura OPC (Avenar)
@@ -39,53 +39,55 @@ namespace INTG_OPC_AVENAR_NET4_5
                 var exporterPath = Path.Combine(
                     AppDomain.CurrentDomain.BaseDirectory,
                     $"treeExporter_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+
                 exporter.ExportOpcTreeWithPropertiesToJson(exporterPath);
-                Console.WriteLine($"[APP] Árbol OPC exportado: {exporterPath}");
 
-                var itemIdMap = OpcTreeExporter.ParseItemIdMapFromJsonFile(exporterPath);
+                var commandPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    $"commands_{DateTime.Now:yyyyMMdd_HHmmss}.json");
 
-                if (!opcClient.InitializeSubscriptionGroup(itemIdMap: itemIdMap))
-                {
-                    Console.WriteLine("[APP] No se pudo inicializar el grupo. Abortando.");
-                    return;
-                }
-
-                //var commandPath = Path.Combine(
-                //    AppDomain.CurrentDomain.BaseDirectory,
-                //    $"commands_{DateTime.Now:yyyyMMdd_HHmmss}.json");
-                //exporter.ExportCommandsToJson(commandPath);
-                //Console.WriteLine($"Path comandos exportados {commandPath}");
+                exporter.ExportCommandsToJson(commandPath);
 
                 // ══════════════════════════════════════════════════════════════════
                 // Generacion de Archivos de Integracion (Integration JSON, DDI y DBI)
                 // ══════════════════════════════════════════════════════════════════
 
-                //var allowedTypes = new[] { "Detector", "Input", "NAC", "Aux Power", "Buzzer" };
+                var allowedTypes = new[] { "Detector", "Input", "NAC", "Aux Power", "Buzzer" };
 
-                //var integrationPath = Path.Combine(
-                //    AppDomain.CurrentDomain.BaseDirectory,
-                //    $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.json");
-                //exporter.ExportIntegrationJson(integrationPath, allowedTypes);
+                var integrationPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+                exporter.ExportIntegrationJson(integrationPath, allowedTypes);
                 //Console.WriteLine($"Path integration JSON {integrationPath}");
 
-                //var ddiPath = Path.Combine(
-                //    AppDomain.CurrentDomain.BaseDirectory,
-                //    $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.ddi");
-                //exporter.ExportDdiFile(ddiPath, allowedTypes);
+                var ddiPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.ddi");
+                exporter.ExportDdiFile(ddiPath, allowedTypes);
                 //Console.WriteLine($"Path DDI {ddiPath}");
 
-                //var dbiPath = Path.ChangeExtension(ddiPath, ".dbi");
-                //exporter.ExportDbiFile(dbiPath, allowedTypes);
+                var dbiPath = Path.ChangeExtension(ddiPath, ".dbi");
+                exporter.ExportDbiFile(dbiPath, allowedTypes);
                 //Console.WriteLine($"Path DBI {dbiPath}");
 
+
+                // ══════════════════════════════════════════════════════════════════
+                // Inicio de Integracion y manejo de eventos 
+                // ══════════════════════════════════════════════════════════════════
+
+                var nodeIdMapByItemName = OpcIntegrationExporter.BuildNodeIdMapFromTreeJson(exporterPath);
+
+                if (!opcClient.StartIntegrationMonitoring(nodeIdMapByItemName))
+                {
+                    Console.WriteLine("[APP] No se pudo inicializar el grupo. Abortando.");
+                    return;
+                }
                 opcClient.PanelChanged += (values) => OnPanelChanged(values, opcClient);
 
                 //opcClient.ReadItems();
                 Console.WriteLine("\n==================================================");
                 Console.WriteLine("[APP] Presiona cualquier tecla para desconectar...");
-                Console.WriteLine("==================================================\n");
-
-               
+                Console.WriteLine("==================================================\n");               
 
                 Console.ReadKey();                              
             }

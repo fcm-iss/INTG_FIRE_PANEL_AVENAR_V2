@@ -165,10 +165,19 @@ namespace INTG_OPC
         // ══════════════════════════════════════════════════════
 
         /// <summary>
+        /// Inicia el monitoreo de cambios del panel: crea el grupo de suscripción OPC,
+        /// registra los ítems con sus ClientHandles y comienza a escuchar eventos.
+        /// </summary>
+        public bool StartIntegrationMonitoring(Dictionary<string, string> nodeIdMapByItemName = null)
+        {
+            return InitializeSubscriptionGroup(itemIdMap: nodeIdMapByItemName);
+        }
+
+        /// <summary>
         /// Descubre todos los ítems del servidor, crea el grupo
         /// de suscripción y registra los ítems en él.
         /// </summary>
-        public bool InitializeSubscriptionGroup(
+        private bool InitializeSubscriptionGroup(
             string groupName = "FPA5000_Group",
             int updateRateMs = 5000,
             Dictionary<string, string> itemIdMap = null)
@@ -284,43 +293,6 @@ namespace INTG_OPC
                 return false;
             }
         }
-
-        /// <summary>
-        /// Escribe múltiples valores en el servidor en una sola llamada.
-        /// </summary>
-        /// <param name="itemValues">Array de ItemValue con ItemName y Value ya asignados.</param>
-        /// <returns>Array de resultados por ítem, o null si ocurrió una excepción.</returns>
-        public IdentifiedResult[] WriteItems(ItemValue[] itemValues)
-        {
-            ThrowIfNotConnected();
-
-            if (itemValues == null || itemValues.Length == 0)
-                throw new ArgumentException(
-                    "Debe proporcionar al menos un ítem para escribir.", nameof(itemValues));
-
-            try
-            {
-                var results = _server.Write(itemValues);
-
-                if (results != null)
-                {
-                    foreach (var r in results)
-                    {
-                        var status = r.ResultID.Succeeded() ? "OK  " : "FAIL";
-                        Console.WriteLine($"[OPC] Write {status}: {r.ItemName} — {r.ResultID}");
-                    }
-                }
-
-                return results;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[OPC] Error al escribir ítems: {ex.Message}");
-                return null;
-            }
-        }
-                
-
 
         // ══════════════════════════════════════════════════════
         // IDisposable
@@ -462,7 +434,38 @@ namespace INTG_OPC
         }
 
 
-        //----------------------------------------------------------------
+        #region Debug
+
+        public IdentifiedResult[] WriteItems(ItemValue[] itemValues)
+        {
+            ThrowIfNotConnected();
+
+            if (itemValues == null || itemValues.Length == 0)
+                throw new ArgumentException(
+                    "Debe proporcionar al menos un ítem para escribir.", nameof(itemValues));
+
+            try
+            {
+                var results = _server.Write(itemValues);
+
+                if (results != null)
+                {
+                    foreach (var r in results)
+                    {
+                        var status = r.ResultID.Succeeded() ? "OK  " : "FAIL";
+                        Console.WriteLine($"[OPC] Write {status}: {r.ItemName} — {r.ResultID}");
+                    }
+                }
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC] Error al escribir ítems: {ex.Message}");
+                return null;
+            }
+        }
+
         public void PrintItemProperties(string itemName, string indent)
         {
             try
@@ -486,27 +489,21 @@ namespace INTG_OPC
             }
         }
 
-        //----------------------------------------------------------------
         public Dictionary<string, string> GetItemProperties(string itemName, int NumPropertie)
         {
             try
             {
-                var id= new PropertyID(NumPropertie);
                 var results = _server.GetProperties(new[] { new ItemIdentifier(itemName) }, null, true);
                 if (results == null || results.Length == 0) return null;
-
 
                 var prop = results[0]
                       .Cast<ItemProperty>()
                       .FirstOrDefault(p => p.ID.Code == NumPropertie);
 
-
-
                 if (prop?.Value is string raw)
                 {
                     if (raw.TrimStart().StartsWith("<"))
                     {
-                        // Es XML con comandos → parsear
                         var doc = XDocument.Parse(raw);
                         XNamespace ns = "file:///S3K/Proxyverwalter";
                         var commands = doc.Descendants(ns + "Command")
@@ -516,7 +513,6 @@ namespace INTG_OPC
                     return prop != null ? new Dictionary<string, string> { { prop.Description ?? $"Property {prop.ID.Code}", prop.Value?.ToString() ?? "(null)" } } : null;
                 }
                 return null;
-
             }
             catch (Exception ex)
             {
@@ -524,5 +520,7 @@ namespace INTG_OPC
                 return null;
             }
         }
+
+        #endregion
     }
 }
