@@ -57,17 +57,17 @@ namespace INTG_OPC_AVENAR_NET4_5
                 var integrationPath = Path.Combine(
                     AppDomain.CurrentDomain.BaseDirectory,
                     $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.json");
-                exporter.ExportIntegrationJson(integrationPath, allowedTypes);
+                exporter.ExportIntegrationJson(exporterPath, integrationPath, allowedTypes);
                 //Console.WriteLine($"Path integration JSON {integrationPath}");
 
                 var ddiPath = Path.Combine(
                     AppDomain.CurrentDomain.BaseDirectory,
                     $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.ddi");
-                exporter.ExportDdiFile(ddiPath, allowedTypes);
+                exporter.ExportDdiFile(exporterPath, ddiPath, allowedTypes);
                 //Console.WriteLine($"Path DDI {ddiPath}");
 
                 var dbiPath = Path.ChangeExtension(ddiPath, ".dbi");
-                exporter.ExportDbiFile(dbiPath, allowedTypes);
+                exporter.ExportDbiFile(exporterPath, dbiPath, allowedTypes);
                 //Console.WriteLine($"Path DBI {dbiPath}");
 
 

@@ -48,11 +48,11 @@ namespace ISS.OPCMonitor
                 var json  = SerializeCmdJson(props, _serverUrl, DateTime.Now);
 
                 File.WriteAllText(outputPath, json, new UTF8Encoding(false));
-                Console.WriteLine($"[OPC] Comandos CMD exportados: {outputPath}");
+                Console.WriteLine($"[OPC_Exporter] Comandos CMD exportados: {outputPath}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[OPC] Error al exportar comandos CMD: {ex.Message}");
+                Console.WriteLine($"[OPC_Exporter] Error al exportar comandos CMD: {ex.Message}");
             }
         }
 
@@ -106,7 +106,7 @@ namespace ISS.OPCMonitor
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[OPC] Error al leer propiedades de '{itemName}': {ex.Message}");
+                Console.WriteLine($"[OPC_Exporter] Error al leer propiedades de '{itemName}': {ex.Message}");
                 return new List<CmdProperty>();
             }
         }
@@ -161,13 +161,13 @@ namespace ISS.OPCMonitor
         /// </summary>
         public void ExportOpcTreeWithPropertiesToJson(string outputPath)
         {
-            Console.WriteLine("Building OPC tree...");
+            Console.WriteLine("[OPC_Exporter] Building OPC tree...");
 
             var rootNode = BuildRootNode();
             var json     = SerializeTreeToJson(rootNode);
             WriteJsonToFile(json, outputPath);
 
-            Console.WriteLine("Tree exported to: " + outputPath);
+            Console.WriteLine("[OPC_Exporter] Tree exported to: " + outputPath);
         }
 
         /// <summary>
@@ -240,7 +240,7 @@ namespace ISS.OPCMonitor
         private static void LogBrowsedElements(BrowseElement[] elements)
         {
             foreach (var e in elements)
-                Console.WriteLine($"[DBG] Name='{e.Name}' ItemName='{e.ItemName}' HasChildren={e.HasChildren} IsItem={e.IsItem}");
+                Console.WriteLine($"[OPC_Exporter] Name='{e.Name}' ItemName='{e.ItemName}' HasChildren={e.HasChildren} IsItem={e.IsItem}");
         }
 
         /// <summary>
@@ -344,7 +344,7 @@ namespace ISS.OPCMonitor
             catch (Exception ex)
             {
                 var nodeName = parentId?.ItemName ?? "root";
-                Console.WriteLine($"Browse error at '{nodeName}': {ex.Message}");
+                Console.WriteLine($"[OPC_Exporter] Browse error at '{nodeName}': {ex.Message}");
                 return null;
             }
         }
@@ -459,7 +459,7 @@ namespace ISS.OPCMonitor
             var rootNode = DeserializeJsonRootNode(json);
             var map      = CollectItemIdPairsFromNode(rootNode);
 
-            Console.WriteLine($"[OPC] Mapa ItemName→id extraído del JSON: {map.Count} ítems.");
+            Console.WriteLine($"[OPC_Exporter] Mapa ItemName→id extraído del JSON: {map.Count} ítems.");
             return map;
         }
 
@@ -535,82 +535,110 @@ namespace ISS.OPCMonitor
         // ExportIntegrationJson  →  integration_*.json
         // ══════════════════════════════════════════════════════════════════
 
-        public void ExportIntegrationJson(string outputPath, ICollection<string> allowedChildTypes = null)
+        public void ExportIntegrationJson(string treeJsonPath, string outputPath, ICollection<string> allowedChildTypes = null)
         {
-            Console.WriteLine("Building OPC integration JSON...");
+            Console.WriteLine("[OPC_Exporter] Building OPC integration JSON...");
+
+            var rootNode  = LoadTreeFromJsonFile(treeJsonPath);
+            var structure = BuildIntegrationStructureFromTree(rootNode, allowedChildTypes);
 
             var root = new Dictionary<string, object>
             {
                 { "version",       1  },
                 { "reset_timeout", 60 },
-                { "structure",     BuildIntegrationChildren(null, isFirstLevel: true, filter: allowedChildTypes) }
+                { "structure",     structure }
             };
 
-            string json = FormatIntegrationJson(root);
-
-            File.WriteAllText(outputPath, json, new UTF8Encoding(false));
-            Console.WriteLine("Integration JSON exported to: " + outputPath);
+            File.WriteAllText(outputPath, FormatIntegrationJson(root), new UTF8Encoding(false));
+            Console.WriteLine("[OPC_Exporter] Integration JSON exported to: " + outputPath);
         }
 
-        private List<object> BuildIntegrationChildren(
-            ItemIdentifier parentId,
-            bool isFirstLevel = false,
-            bool applyFilter  = false,
-            ICollection<string> filter = null,
-            string parentName = null,
-            int depth = 0)
+        private static Dictionary<string, object> LoadTreeFromJsonFile(string treeJsonPath)
         {
-            BrowsePosition pos;
-            BrowseElement[] elements;
+            var json = ReadJsonFileContent(treeJsonPath);
+            return DeserializeJsonRootNode(json);
+        }
 
-            try
+        private static IEnumerable<Dictionary<string, object>> GetChildNodes(Dictionary<string, object> node)
+        {
+            object childrenObj;
+            if (!node.TryGetValue("children", out childrenObj)) yield break;
+
+            var children = childrenObj as System.Collections.ArrayList;
+            if (children == null) yield break;
+
+            foreach (var child in children)
             {
-                elements = _server.Browse(parentId, FilterAll, out pos);
+                var d = child as Dictionary<string, object>;
+                if (d != null) yield return d;
             }
-            catch (Exception ex)
+        }
+
+        private static IEnumerable<Dictionary<string, object>> GetTypeNodesFromTree(Dictionary<string, object> rootNode)
+        {
+            foreach (var panel in GetChildNodes(rootNode))
+                foreach (var typeNode in GetChildNodes(panel))
+                    yield return typeNode;
+        }
+
+        private static bool IsBranchNode(Dictionary<string, object> node)
+        {
+            var et = ReadStringField(node, "elementType");
+            return et == "branch" || et == "branch|item";
+        }
+
+        private static bool IsTypeAllowed(string name, ICollection<string> allowedTypes) =>
+            allowedTypes == null || allowedTypes.Count == 0 || allowedTypes.Contains(name);
+
+        private List<object> BuildIntegrationStructureFromTree(
+            Dictionary<string, object> rootNode,
+            ICollection<string> allowedChildTypes)
+        {
+            var result    = new List<object>();
+            var seenTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var typeNode in GetTypeNodesFromTree(rootNode))
             {
-                Console.WriteLine("Browse error at '" + (parentId != null ? parentId.ItemName : "root") + "': " + ex.Message);
-                return new List<object>();
-            }
+                string name = ReadStringField(typeNode, "name");
+                if (!IsTypeAllowed(name, allowedChildTypes)) continue;
 
-            if (elements == null || elements.Length == 0)
-                return new List<object>();
+                string typeName = _prefix + StripDigits(Normalize(name));
+                if (!seenTypes.Add(typeName)) continue;
 
-            var result = new List<object>();
-
-            foreach (var elem in elements)
-            {
-                if (!elem.HasChildren)
-                    continue;
-
-                if (applyFilter && filter != null && filter.Count > 0
-                    && !filter.Contains(elem.Name))
-                    continue;
-
-                string typeName = IsNumeric(elem.Name)
-                    ? (parentName ?? (_prefix + "ITEM")) + "_G" + elem.Name
-                    : _prefix + StripDigits(Normalize(elem.Name));
-
-                // depth 0 = root, depth 1 = panel children (tipos, sin recursión adicional)
-                List<object> children = new List<object>();
-                if (depth < 1)
+                var children = BuildInstanceSubtypesFromTree(typeNode, typeName);
+                var node     = new Dictionary<string, object>
                 {
-                    children = BuildIntegrationChildren(
-                        new ItemIdentifier(elem.ItemName),
-                        applyFilter: isFirstLevel,
-                        filter: filter,
-                        parentName: typeName,
-                        depth: depth + 1);
-                }
-
-                var node = new Dictionary<string, object>();
-                if (isFirstLevel)
-                    node["parent"] = "INTEGRATION";
-                node["type"] = typeName;
+                    { "parent", "INTEGRATION" },
+                    { "type",   typeName }
+                };
                 if (children.Count > 0)
                     node["children"] = children;
 
                 result.Add(node);
+            }
+
+            return result;
+        }
+
+        private List<object> BuildInstanceSubtypesFromTree(
+            Dictionary<string, object> typeNode,
+            string parentTypeName)
+        {
+            var result    = new List<object>();
+            var seenTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var instanceNode in GetChildNodes(typeNode))
+            {
+                if (!IsBranchNode(instanceNode)) continue;
+
+                string instanceName = ReadStringField(instanceNode, "name");
+                string subTypeName  = IsNumeric(instanceName)
+                    ? parentTypeName + "_G" + instanceName
+                    : _prefix + StripDigits(Normalize(instanceName));
+
+                if (!seenTypes.Add(subTypeName)) continue;
+
+                result.Add(new Dictionary<string, object> { { "type", subTypeName } });
             }
 
             return result;
@@ -676,23 +704,23 @@ namespace ISS.OPCMonitor
         // ExportDdiFile  →  integration_*.ddi
         // ══════════════════════════════════════════════════════════════════
 
-        public void ExportDdiFile(string outputPath, ICollection<string> allowedChildTypes = null)
+        public void ExportDdiFile(string treeJsonPath, string outputPath, ICollection<string> allowedChildTypes = null)
         {
-            Console.WriteLine("Building DDI file...");
+            Console.WriteLine("[OPC_Exporter] Building DDI file...");
 
-            var structure = BuildIntegrationChildren(null, isFirstLevel: true, filter: allowedChildTypes);
-            var types = new List<string>();
+            var rootNode  = LoadTreeFromJsonFile(treeJsonPath);
+            var structure = BuildIntegrationStructureFromTree(rootNode, allowedChildTypes);
+            var types     = new List<string>();
             CollectUniqueTypes(structure, types);
 
-            Console.WriteLine("Collecting events from OPC tree...");
-            var events = CollectEventRows(allowedChildTypes);
+            var events = CollectEventRowsFromTree(rootNode, allowedChildTypes);
 
             int c1 = Math.Max(22, Math.Max(
-                types.Count  > 0 ? types.Max(t => t.Length)         + 2 : 0,
-                events.Count > 0 ? events.Max(e => e.Item1.Length)  + 2 : 0));
-            int c3base = types.Count > 0 ? types.Max(t => t.Length) + 2 : 27;
-            int c4 = Math.Max(20, events.Count > 0 ? events.Max(e => e.Item3.Length) + 2 : 20);
-            int c5 = c4;
+                types.Count  > 0 ? types.Max(t => t.Length)        + 2 : 0,
+                events.Count > 0 ? events.Max(e => e.Item1.Length) + 2 : 0));
+            int c3base = types.Count  > 0 ? types.Max(t => t.Length) + 2 : 27;
+            int c4     = Math.Max(20, events.Count > 0 ? events.Max(e => e.Item3.Length) + 2 : 20);
+            int c5     = c4;
             const int c2 = 27, c6 = 16;
             int c3 = Math.Max(c3base, 27);
 
@@ -740,83 +768,51 @@ namespace ISS.OPCMonitor
             sb.AppendLine();
 
             File.WriteAllText(outputPath, sb.ToString(), new UTF8Encoding(false));
-            Console.WriteLine("DDI file exported to: " + outputPath);
+            Console.WriteLine("[OPC_Exporter] DDI file exported to: " + outputPath);
         }
 
-        private List<Tuple<string, string, string>> CollectEventRows(ICollection<string> allowedChildTypes = null)
+        private List<Tuple<string, string, string>> CollectEventRowsFromTree(
+            Dictionary<string, object> rootNode,
+            ICollection<string> allowedChildTypes)
         {
             var events    = new List<Tuple<string, string, string>>();
-            var doneTypes = new HashSet<string>();
-            List<object>  cmdProps = null;
+            var doneTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            // Root → panels → type branches
-            foreach (var panel in BrowseElements(null))
+            foreach (var typeNode in GetTypeNodesFromTree(rootNode))
             {
-                if (!panel.HasChildren) continue;
+                string name = ReadStringField(typeNode, "name");
+                if (!IsTypeAllowed(name, allowedChildTypes)) continue;
 
-                foreach (var typeBranch in BrowseElements(new ItemIdentifier(panel.ItemName)))
-                {
-                    if (!typeBranch.HasChildren) continue;
+                string objType = _prefix + StripDigits(Normalize(name));
+                if (!doneTypes.Add(objType)) continue;
 
-                    if (allowedChildTypes != null && allowedChildTypes.Count > 0
-                        && !allowedChildTypes.Contains(typeBranch.Name))
-                        continue;
+                var uniqueCommands = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                CollectUniqueCommandsFromDescendants(typeNode, uniqueCommands);
 
-                    string objType = _prefix + Normalize(typeBranch.Name);
-                    if (doneTypes.Contains(objType)) continue;
-
-                    // Search items up to depth 2 under the type branch
-                    int detectorTypeId = FindDetectorTypeId(new ItemIdentifier(typeBranch.ItemName), maxDepth: 2);
-                    if (detectorTypeId == 0) continue;
-
-                    if (cmdProps == null)
-                        cmdProps = GetItemProperties("CMD");
-
-                    foreach (Dictionary<string, object> cmdProp in cmdProps)
-                    {
-                        if (System.Convert.ToInt32(cmdProp["code"]) != detectorTypeId) continue;
-
-                        object commandsObj;
-                        if (cmdProp.TryGetValue("commands", out commandsObj))
-                        {
-                            foreach (var kv in (Dictionary<string, string>)commandsObj)
-                                foreach (var cmd in ParseCommands(kv.Value))
-                                    events.Add(Tuple.Create(objType, cmd.Item1, cmd.Item2));
-                        }
-                        break;
-                    }
-
-                    doneTypes.Add(objType);
-                }
+                foreach (var kv in uniqueCommands)
+                    foreach (var cmd in ParseCommands(kv.Value))
+                        events.Add(Tuple.Create(objType, cmd.Item1, cmd.Item2));
             }
 
             return events;
         }
 
-        private int FindDetectorTypeId(ItemIdentifier parentId, int maxDepth)
+        private static void CollectUniqueCommandsFromDescendants(
+            Dictionary<string, object> node,
+            Dictionary<string, string> uniqueCommands)
         {
-            if (maxDepth < 0) return 0;
-
-            foreach (var elem in BrowseElements(parentId))
+            object commandsObj;
+            if (node.TryGetValue("commands", out commandsObj))
             {
-                if (elem.IsItem)
-                {
-                    foreach (Dictionary<string, object> p in GetItemProperties(elem.ItemName))
-                    {
-                        if (string.Equals(p["description"]?.ToString(), "DetectorTypeID", StringComparison.OrdinalIgnoreCase)
-                            && int.TryParse(p["value"]?.ToString(), out int tid) && tid > 0)
-                            return tid;
-                    }
-                }
-
-                if (elem.HasChildren)
-                {
-                    int tid = FindDetectorTypeId(new ItemIdentifier(elem.ItemName), maxDepth - 1);
-                    if (tid > 0) return tid;
-                }
+                var commands = commandsObj as Dictionary<string, object>;
+                if (commands != null)
+                    foreach (var kv in commands)
+                        if (!uniqueCommands.ContainsKey(kv.Key))
+                            uniqueCommands[kv.Key] = kv.Value?.ToString() ?? "";
             }
 
-            return 0;
+            foreach (var child in GetChildNodes(node))
+                CollectUniqueCommandsFromDescendants(child, uniqueCommands);
         }
 
         private static List<Tuple<string, string>> ParseCommands(string xml)
@@ -825,6 +821,130 @@ namespace ISS.OPCMonitor
             foreach (Match m in Regex.Matches(xml, @"Name=""([^""]+)""[^>]*Description=""([^""]+)"""))
                 result.Add(Tuple.Create(m.Groups[1].Value, m.Groups[2].Value));
             return result;
+        }
+
+        private static List<Tuple<string, string, string, string>> BuildStateRows(
+            List<Tuple<string, string, string>> events)
+        {
+            var byType    = new Dictionary<string, List<Tuple<string, string, string>>>();
+            var typeOrder = new List<string>();
+
+            foreach (var ev in events)
+            {
+                if (!byType.ContainsKey(ev.Item1))
+                {
+                    byType[ev.Item1] = new List<Tuple<string, string, string>>(BaseStates);
+                    typeOrder.Add(ev.Item1);
+                }
+
+                Tuple<string, string, string> state;
+                if (!CommandToState.TryGetValue(ev.Item2, out state) || state == null) continue;
+
+                if (!byType[ev.Item1].Exists(s => s.Item1 == state.Item1))
+                    byType[ev.Item1].Add(state);
+            }
+
+            var result = new List<Tuple<string, string, string, string>>();
+            foreach (var objType in typeOrder)
+                foreach (var s in byType[objType])
+                    result.Add(Tuple.Create(objType, s.Item1, s.Item2, s.Item3));
+            return result;
+        }
+
+        private static List<Tuple<string, string, string, string>> BuildStateRuleRows(
+            List<Tuple<string, string, string>> events)
+        {
+            var result = new List<Tuple<string, string, string, string>>();
+            var seen   = new HashSet<string>();
+
+            foreach (var ev in events)
+            {
+                string key = ev.Item1 + "|" + ev.Item2;
+                if (!seen.Add(key)) continue;
+
+                Tuple<string, string, string> stateInfo;
+                if (!CommandToState.TryGetValue(ev.Item2, out stateInfo) || stateInfo == null) continue;
+
+                string toState = stateInfo.Item1;
+                string fromState;
+                OffCommandFromState.TryGetValue(ev.Item2, out fromState);
+
+                result.Add(Tuple.Create(ev.Item1, ev.Item2, fromState ?? "", toState));
+            }
+
+            return result;
+        }
+
+        private static string Col(string value, int width)
+        {
+            if (value == null) value = "";
+            return value.Length >= width ? value : value + new string(' ', width - value.Length);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // ExportDbiFile  →  integration_*.dbi
+        // ══════════════════════════════════════════════════════════════════
+
+        public void ExportDbiFile(string treeJsonPath, string outputPath, ICollection<string> allowedChildTypes = null)
+        {
+            Console.WriteLine("[OPC_Exporter] Building DBI file...");
+
+            var rootNode  = LoadTreeFromJsonFile(treeJsonPath);
+            var structure = BuildIntegrationStructureFromTree(rootNode, allowedChildTypes);
+            var types     = new List<string>();
+            CollectUniqueTypes(structure, types);
+
+            var sb = new StringBuilder();
+
+            foreach (var t in types)
+            {
+                sb.AppendLine("[OBJ_" + t + "]");
+                sb.AppendLine("id, CHAR, 16");
+                sb.AppendLine("name, CHAR, 60");
+                sb.AppendLine("parent_id, CHAR, 60");
+                sb.AppendLine("flags, INTEGER");
+                sb.AppendLine("camera_name, TEXT");
+                sb.AppendLine("camera_id, CHAR, 60");
+                sb.AppendLine("priority, CHAR, 60");
+                sb.AppendLine();
+            }
+
+            File.WriteAllText(outputPath, sb.ToString(), new UTF8Encoding(false));
+            Console.WriteLine("[OPC_Exporter] DBI file exported to: " + outputPath);
+        }
+
+        private static void CollectUniqueTypes(List<object> items, List<string> types)
+        {
+            foreach (Dictionary<string, object> item in items)
+            {
+                string type = (string)item["type"];
+                if (!types.Contains(type))
+                    types.Add(type);
+                if (item.ContainsKey("children"))
+                    CollectUniqueTypes((List<object>)item["children"], types);
+            }
+        }
+
+        #endregion
+
+        #region Modelos
+
+        private sealed class CmdProperty
+        {
+            public int    Code        { get; set; }
+            public string Description { get; set; }
+            public string Value       { get; set; }
+            public bool   IsXml       { get; set; }
+            public Dictionary<string, string> Commands { get; set; }
+        }
+
+        private class MergedElement
+        {
+            public string Name           { get; set; }
+            public bool   HasChildren    { get; set; }
+            public bool   IsItem         { get; set; }
+            public string BranchItemName { get; set; }
+            public string ItemItemName   { get; set; }
         }
 
         private static readonly Dictionary<string, Tuple<string, string, string>> CommandToState =
@@ -873,34 +993,6 @@ namespace ISS.OPCMonitor
             Tuple.Create("FAULT",  "FLT", "Falla"),
         };
 
-        private static List<Tuple<string, string, string, string>> BuildStateRows(
-            List<Tuple<string, string, string>> events)
-        {
-            var byType    = new Dictionary<string, List<Tuple<string, string, string>>>();
-            var typeOrder = new List<string>();
-
-            foreach (var ev in events)
-            {
-                if (!byType.ContainsKey(ev.Item1))
-                {
-                    byType[ev.Item1] = new List<Tuple<string, string, string>>(BaseStates);
-                    typeOrder.Add(ev.Item1);
-                }
-
-                Tuple<string, string, string> state;
-                if (!CommandToState.TryGetValue(ev.Item2, out state) || state == null) continue;
-
-                if (!byType[ev.Item1].Exists(s => s.Item1 == state.Item1))
-                    byType[ev.Item1].Add(state);
-            }
-
-            var result = new List<Tuple<string, string, string, string>>();
-            foreach (var objType in typeOrder)
-                foreach (var s in byType[objType])
-                    result.Add(Tuple.Create(objType, s.Item1, s.Item2, s.Item3));
-            return result;
-        }
-
         private static readonly Dictionary<string, string> OffCommandFromState =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -918,108 +1010,6 @@ namespace ISS.OPCMonitor
                 { "OUTTOFPE_OFF_PANEL", "OUT_OF_FPE" },
                 { "OUTTOFPE_OFF_SCOPE", "OUT_OF_FPE" },
             };
-
-        private static List<Tuple<string, string, string, string>> BuildStateRuleRows(
-            List<Tuple<string, string, string>> events)
-        {
-            var result = new List<Tuple<string, string, string, string>>();
-            var seen   = new HashSet<string>();
-
-            foreach (var ev in events)
-            {
-                string key = ev.Item1 + "|" + ev.Item2;
-                if (!seen.Add(key)) continue;
-
-                Tuple<string, string, string> stateInfo;
-                if (!CommandToState.TryGetValue(ev.Item2, out stateInfo) || stateInfo == null) continue;
-
-                string toState = stateInfo.Item1;
-                string fromState;
-                OffCommandFromState.TryGetValue(ev.Item2, out fromState);
-
-                result.Add(Tuple.Create(ev.Item1, ev.Item2, fromState ?? "", toState));
-            }
-
-            return result;
-        }
-
-        private static string Col(string value, int width)
-        {
-            if (value == null) value = "";
-            return value.Length >= width ? value : value + new string(' ', width - value.Length);
-        }
-
-        // ══════════════════════════════════════════════════════════════════
-        // ExportDbiFile  →  integration_*.dbi
-        // ══════════════════════════════════════════════════════════════════
-
-        public void ExportDbiFile(string outputPath, ICollection<string> allowedChildTypes = null)
-        {
-            Console.WriteLine("Building DBI file...");
-
-            var structure = BuildIntegrationChildren(null, isFirstLevel: true, filter: allowedChildTypes);
-            var types = new List<string>();
-            CollectUniqueTypes(structure, types);
-
-            var sb = new StringBuilder();
-
-            foreach (var t in types)
-            {
-                sb.AppendLine("[OBJ_" + t + "]");
-                sb.AppendLine("id, CHAR, 16");
-                sb.AppendLine("name, CHAR, 60");
-                sb.AppendLine("parent_id, CHAR, 60");
-                sb.AppendLine("flags, INTEGER");
-                sb.AppendLine("camera_name, TEXT");
-                sb.AppendLine("camera_id, CHAR, 60");
-                sb.AppendLine("priority, CHAR, 60");
-                sb.AppendLine();
-            }
-
-            File.WriteAllText(outputPath, sb.ToString(), new UTF8Encoding(false));
-            Console.WriteLine("DBI file exported to: " + outputPath);
-        }
-
-        private static void CollectUniqueTypes(List<object> items, List<string> types)
-        {
-            foreach (Dictionary<string, object> item in items)
-            {
-                string type = (string)item["type"];
-                if (!types.Contains(type))
-                    types.Add(type);
-                if (item.ContainsKey("children"))
-                    CollectUniqueTypes((List<object>)item["children"], types);
-            }
-        }
-
-        private BrowseElement[] BrowseElements(ItemIdentifier parentId)
-        {
-            BrowsePosition pos;
-            try { return _server.Browse(parentId, FilterAll, out pos) ?? new BrowseElement[0]; }
-            catch { return new BrowseElement[0]; }
-        }
-
-        #endregion
-
-        #region Modelos
-
-        private sealed class CmdProperty
-        {
-            public int    Code        { get; set; }
-            public string Description { get; set; }
-            public string Value       { get; set; }
-            public bool   IsXml       { get; set; }
-            public Dictionary<string, string> Commands { get; set; }
-        }
-
-        private class MergedElement
-        {
-            public string Name           { get; set; }
-            public bool   HasChildren    { get; set; }
-            public bool   IsItem         { get; set; }
-            public string BranchItemName { get; set; }
-            public string ItemItemName   { get; set; }
-        }
 
         #endregion
 
@@ -1077,7 +1067,7 @@ namespace ISS.OPCMonitor
             }
             catch (Exception ex)
             {
-                Console.WriteLine("GetProperties error for '" + itemName + "': " + ex.Message);
+                Console.WriteLine($"[OPC_Exporter] GetProperties error for '{itemName}': " + ex.Message);
                 return new List<object>();
             }
         }
