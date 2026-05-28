@@ -63,9 +63,13 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Xml" />
+    <Reference Include="ISS.SecurOS.idk">
+      <HintPath>C:\Program Files (x86)\ISS\SecurOS\ISS.SecurOS.idk.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="OpcDaClient.cs" />
+    <Compile Include="SecurOsEventSender.cs" />
     <Compile Include="OpcIntegrationExporter.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

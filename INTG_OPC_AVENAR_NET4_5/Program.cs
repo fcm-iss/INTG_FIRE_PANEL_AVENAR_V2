@@ -1,13 +1,10 @@
-﻿using INTG_OPC;
+using INTG_OPC;
 using ISS.OPCMonitor;
-using Opc;
 using Opc.Da;
 using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
-using System.Linq;
-using System.Net.Sockets;
-using System.Windows.Input;
 
 namespace INTG_OPC_AVENAR_NET4_5
 {
@@ -16,12 +13,12 @@ namespace INTG_OPC_AVENAR_NET4_5
         [STAThread]
         static void Main(string[] args)
         {
+            var securOs = SecurOsEventSender.Connect();
+
             using (var opcClient = new OpcClient())
             {
                 var selectedUrl = DiscoverAndSelectOpcServer(opcClient);
-
-                if (string.IsNullOrEmpty(selectedUrl))
-                    return;
+                if (string.IsNullOrEmpty(selectedUrl)) return;
 
                 if (!opcClient.Connect(selectedUrl))
                 {
@@ -29,104 +26,82 @@ namespace INTG_OPC_AVENAR_NET4_5
                     return;
                 }
 
-                var ddiPrefix = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
-                var exporter = new OpcIntegrationExporter(opcClient.Server, ddiPrefix, selectedUrl);
+                var exporterPath = ExportOpcFiles(opcClient, selectedUrl);
 
-                // ══════════════════════════════════════════════════════════════════
-                // Generacion de Arbol de estructura OPC (Avenar)
-                // ══════════════════════════════════════════════════════════════════
-
-                var exporterPath = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    $"treeExporter_{DateTime.Now:yyyyMMdd_HHmmss}.json");
-
-                exporter.ExportOpcTreeWithPropertiesToJson(exporterPath);
-
-                var commandPath = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    $"commands_{DateTime.Now:yyyyMMdd_HHmmss}.json");
-
-                exporter.ExportCommandsToJson(commandPath);
-
-                // ══════════════════════════════════════════════════════════════════
-                // Generacion de Archivos de Integracion (Integration JSON, DDI y DBI)
-                // ══════════════════════════════════════════════════════════════════
-
-                var allowedTypes = new[] { "Detector", "Input", "NAC", "Aux Power", "Buzzer" };
-
-                var integrationPath = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.json");
-                exporter.ExportIntegrationJson(exporterPath, integrationPath, allowedTypes);
-                //Console.WriteLine($"Path integration JSON {integrationPath}");
-
-                var ddiPath = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    $"integration_{DateTime.Now:yyyyMMdd_HHmmss}.ddi");
-                exporter.ExportDdiFile(exporterPath, ddiPath, allowedTypes);
-                //Console.WriteLine($"Path DDI {ddiPath}");
-
-                var dbiPath = Path.ChangeExtension(ddiPath, ".dbi");
-                exporter.ExportDbiFile(exporterPath, dbiPath, allowedTypes);
-                //Console.WriteLine($"Path DBI {dbiPath}");
-
-
-                // ══════════════════════════════════════════════════════════════════
-                // Inicio de Integracion y manejo de eventos 
-                // ══════════════════════════════════════════════════════════════════
-
-                var nodeIdMapByItemName = OpcIntegrationExporter.BuildNodeIdMapFromTreeJson(exporterPath);
-
-                if (!opcClient.StartIntegrationMonitoring(nodeIdMapByItemName))
-                {
-                    Console.WriteLine("[APP] No se pudo inicializar el grupo. Abortando.");
-                    return;
-                }
-                opcClient.PanelChanged += (values) => OnPanelChanged(values, opcClient);
-
-                //opcClient.ReadItems();
-                Console.WriteLine("\n==================================================");
-                Console.WriteLine("[APP] Presiona cualquier tecla para desconectar...");
-                Console.WriteLine("==================================================\n");               
-
-                Console.ReadKey();                              
+                StartMonitoring(opcClient, exporterPath, securOs);
             }
         }
 
-        private static void OnPanelChanged(Opc.Da.ItemValueResult[] itemsValue, OpcClient opcClient)
+        // ══════════════════════════════════════════════════════════════════
+        // Exportación OPC
+        // ══════════════════════════════════════════════════════════════════
+
+        private static string ExportOpcFiles(OpcClient opcClient, string selectedUrl)
         {
-            foreach (var itemValue in itemsValue)
+            var ddiPrefix    = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
+            var exporter     = new OpcIntegrationExporter(opcClient.Server, ddiPrefix, selectedUrl);
+            var timestamp    = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var baseDir      = AppDomain.CurrentDomain.BaseDirectory;
+            var allowedTypes = new[] { "Detector", "Input", "NAC", "Aux Power", "Buzzer" };
+
+            var exporterPath    = Path.Combine(baseDir, $"treeExporter_{timestamp}.json");
+            var commandPath     = Path.Combine(baseDir, $"commands_{timestamp}.json");
+            var integrationPath = Path.Combine(baseDir, $"integration_{timestamp}.json");
+            var ddiPath         = Path.Combine(baseDir, $"integration_{timestamp}.ddi");
+            var dbiPath         = Path.ChangeExtension(ddiPath, ".dbi");
+
+            exporter.ExportOpcTreeWithPropertiesToJson(exporterPath);
+            exporter.ExportCommandsToJson(commandPath);
+            exporter.ExportIntegrationJson(exporterPath, integrationPath, allowedTypes);
+            exporter.ExportDdiFile(exporterPath, ddiPath, allowedTypes);
+            exporter.ExportDbiFile(exporterPath, dbiPath, allowedTypes);
+
+            return exporterPath;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // Monitoreo
+        // ══════════════════════════════════════════════════════════════════
+
+        private static void StartMonitoring(OpcClient opcClient, string exporterPath, SecurOsEventSender securOs)
+        {
+            var nodeIdMapByItemName = OpcIntegrationExporter.BuildNodeIdMapFromTreeJson(exporterPath);
+
+            if (!opcClient.StartIntegrationMonitoring(nodeIdMapByItemName))
             {
-                if (itemValue.Quality.QualityBits == Opc.Da.qualityBits.bad)
-                {
-                    Console.WriteLine($"[PANEL] Desconectado — ítem: {itemValue.ItemName}");                    
-                }
+                Console.WriteLine("[APP] No se pudo inicializar el grupo. Abortando.");
+                return;
+            }
+
+            opcClient.PanelChanged += (values) => OnPanelChanged(values, securOs);
+
+            Console.WriteLine("\n==================================================");
+            Console.WriteLine("[APP] Presiona cualquier tecla para desconectar...");
+            Console.WriteLine("==================================================\n");
+            Console.ReadKey();
+        }
+
+        private static void OnPanelChanged(ItemValueResult[] itemsValue, SecurOsEventSender securOs)
+        {
+            foreach (var item in itemsValue)
+            {
+                if (item.Quality.QualityBits == qualityBits.bad)
+                    Console.WriteLine($"[PANEL] Desconectado — ítem: {item.ItemName}");
                 else
-                {
-                    Console.WriteLine($"[PANEL] Cambio: {itemValue.ItemName} - {itemValue.ClientHandle} = {itemValue.Value}");
-                    //obtener propiedades.
-                    //otneret pripiedad 5001
-                    //var propierties = opcClient.GetItemProperties(itemValue.ItemName, 5001);
-
-                    //buscar comandos 
-                    //var comands = opcClient.GetItemProperties("CMD", int.Parse(propierties["DetectorTypeID"]));
-                    //escribir comandos
-
-                    //if (comands != null && comands.ContainsKey("ACTIVATE_OFF"))
-                    //{
-                    //    var results = opcClient.Write("CMD", comands["ACTIVATE_OFF"]);
-                    //}
-                }
-
+                    HandleValidItem(item, securOs);
             }
         }
 
-        /// <summary>
-        /// Consulta los servidores OPC DA disponibles en el host local y,
-        /// si hay más de uno, presenta un menú numerado para que el usuario
-        /// elija con cuál conectar. Repite la pregunta hasta recibir una
-        /// opción válida. Retorna la URL del servidor seleccionado.
-        /// </summary>
+        private static void HandleValidItem(ItemValueResult item, SecurOsEventSender securOs)
+        {
+            Console.WriteLine($"[PANEL] Cambio: {item.ItemName} - {item.ClientHandle} = {item.Value}");
+            securOs.Send(item);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // Descubrimiento de Servidor OPC
+        // ══════════════════════════════════════════════════════════════════
+
         private static string DiscoverAndSelectOpcServer(OpcClient opcClient)
         {
             var servers = opcClient.GetAvailableServers();
@@ -143,14 +118,15 @@ namespace INTG_OPC_AVENAR_NET4_5
                 return servers[0];
             }
 
+            return SelectServerFromMenu(servers);
+        }
+
+        private static string SelectServerFromMenu(IReadOnlyList<string> servers)
+        {
             int selectedOption;
             do
             {
-                var optionNumber = 1;
-                foreach (var url in servers)
-                    Console.WriteLine($"{optionNumber++}- {url}");
-
-                Console.Write("Seleccione una opción: ");
+                PrintServerMenu(servers);
 
                 if (!int.TryParse(Console.ReadLine()?.Trim(), out selectedOption))
                 {
@@ -168,6 +144,14 @@ namespace INTG_OPC_AVENAR_NET4_5
             var selected = servers[selectedOption - 1];
             Console.WriteLine($"[APP] Servidor seleccionado: {selected}");
             return selected;
+        }
+
+        private static void PrintServerMenu(IReadOnlyList<string> servers)
+        {
+            var optionNumber = 1;
+            foreach (var url in servers)
+                Console.WriteLine($"{optionNumber++}- {url}");
+            Console.Write("Seleccione una opción: ");
         }
     }
 }

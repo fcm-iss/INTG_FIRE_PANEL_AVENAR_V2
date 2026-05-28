@@ -1,0 +1,40 @@
+En OPC DA, solo los ítems hoja (isItem: true) tienen propiedades consultables.
+
+  Las ramas (isItem: false) son solo contenedores de namespace — no tienen propiedades de datos, son equivalentes a carpetas.
+
+  ---
+  Regla práctica
+
+  root
+  ├── Zone1          ← rama (isItem: false)  → NO tiene propiedades
+  │   ├── Status     ← ítem (isItem: true)   → SÍ tiene propiedades
+  │   └── Command    ← ítem (isItem: true)   → SÍ tiene propiedades
+  └── Zone2          ← rama (isItem: false)  → NO tiene propiedades
+      └── Alarm      ← ítem (isItem: true)   → SÍ tiene propiedades
+
+  ---
+  Propiedades estándar OPC DA (siempre disponibles en ítems)
+
+  ┌────────┬───────────────┬──────────────────────────────────────────────┐
+  │ Código │    Nombre     │                 Descripción                  │
+  ├────────┼───────────────┼──────────────────────────────────────────────┤
+  │ 1      │ Data Type     │ Tipo de dato del ítem (VT_R4, VT_BOOL, etc.) │
+  ├────────┼───────────────┼──────────────────────────────────────────────┤
+  │ 2      │ Value         │ Valor actual                                 │
+  ├────────┼───────────────┼──────────────────────────────────────────────┤
+  │ 3      │ Quality       │ Calidad de la señal                          │
+  ├────────┼───────────────┼──────────────────────────────────────────────┤
+  │ 4      │ Timestamp     │ Última actualización                         │
+  ├────────┼───────────────┼──────────────────────────────────────────────┤
+  │ 5      │ Access Rights │ Lectura / escritura                          │
+  ├────────┼───────────────┼──────────────────────────────────────────────┤
+  │ 6      │ Scan Rate     │ Tasa mínima de actualización                 │
+  └────────┴───────────────┴──────────────────────────────────────────────┘
+
+  Las propiedades 5001, 5002, etc. que ya usas en tu código son propiedades personalizadas del servidor Avenar/Bosch, no estándar.
+
+  ---
+  Cómo saberlo en tu código
+
+  En el árbol JSON que exportas, filtra por "isItem": true — esos son los únicos nodos sobre los que tiene sentido llamar
+  GetItemProperties(itemName, ...).
