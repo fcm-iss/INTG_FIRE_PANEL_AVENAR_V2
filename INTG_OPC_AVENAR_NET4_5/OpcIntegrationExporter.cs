@@ -577,9 +577,15 @@ namespace ISS.OPCMonitor
         private static IEnumerable<Dictionary<string, object>> GetTypeNodesFromTree(Dictionary<string, object> rootNode)
         {
             foreach (var panel in GetChildNodes(rootNode))
+            {
+                if (!IsPanelNode(panel)) continue;
                 foreach (var typeNode in GetChildNodes(panel))
                     yield return typeNode;
+            }
         }
+
+        private static bool IsPanelNode(Dictionary<string, object> node) =>
+            !string.IsNullOrEmpty(ReadStringField(node, "id"));
 
         private static bool IsBranchNode(Dictionary<string, object> node)
         {
@@ -594,22 +600,22 @@ namespace ISS.OPCMonitor
             Dictionary<string, object> rootNode,
             ICollection<string> allowedChildTypes)
         {
-            var result    = new List<object>();
-            var seenTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var result     = new List<object>();
+            var seenPanels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var typeNode in GetTypeNodesFromTree(rootNode))
+            foreach (var panelNode in GetChildNodes(rootNode))
             {
-                string name = ReadStringField(typeNode, "name");
-                if (!IsTypeAllowed(name, allowedChildTypes)) continue;
+                if (!IsPanelNode(panelNode)) continue;
 
-                string typeName = _prefix + StripDigits(Normalize(name));
-                if (!seenTypes.Add(typeName)) continue;
+                string panelName = ReadStringField(panelNode, "name");
+                string panelType = _prefix + Normalize(panelName);
+                if (!seenPanels.Add(panelType)) continue;
 
-                var children = BuildInstanceSubtypesFromTree(typeNode, typeName);
+                var children = BuildTypeChildrenFromPanel(panelNode, allowedChildTypes);
                 var node     = new Dictionary<string, object>
                 {
                     { "parent", "INTEGRATION" },
-                    { "type",   typeName }
+                    { "type",   panelType }
                 };
                 if (children.Count > 0)
                     node["children"] = children;
@@ -620,25 +626,22 @@ namespace ISS.OPCMonitor
             return result;
         }
 
-        private List<object> BuildInstanceSubtypesFromTree(
-            Dictionary<string, object> typeNode,
-            string parentTypeName)
+        private List<object> BuildTypeChildrenFromPanel(
+            Dictionary<string, object> panelNode,
+            ICollection<string> allowedChildTypes)
         {
             var result    = new List<object>();
             var seenTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var instanceNode in GetChildNodes(typeNode))
+            foreach (var typeNode in GetChildNodes(panelNode))
             {
-                if (!IsBranchNode(instanceNode)) continue;
+                string name = ReadStringField(typeNode, "name");
+                if (!IsTypeAllowed(name, allowedChildTypes)) continue;
 
-                string instanceName = ReadStringField(instanceNode, "name");
-                string subTypeName  = IsNumeric(instanceName)
-                    ? parentTypeName + "_G" + instanceName
-                    : _prefix + StripDigits(Normalize(instanceName));
+                string typeName = _prefix + StripDigits(Normalize(name));
+                if (!seenTypes.Add(typeName)) continue;
 
-                if (!seenTypes.Add(subTypeName)) continue;
-
-                result.Add(new Dictionary<string, object> { { "type", subTypeName } });
+                result.Add(new Dictionary<string, object> { { "type", typeName } });
             }
 
             return result;
