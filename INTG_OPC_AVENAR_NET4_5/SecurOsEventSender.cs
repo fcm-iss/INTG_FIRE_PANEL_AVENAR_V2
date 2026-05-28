@@ -49,16 +49,31 @@ namespace INTG_OPC_AVENAR_NET4_5
 
         public void Send(ItemValueResult item)
         {
-            var tipo   = ResolveObjectType(item.ItemName);
-            var id     = item.ClientHandle?.ToString();
-            var estado = ResolveState(item.Value);
+            var handle = item.ClientHandle?.ToString();
+            var state = ResolveState(item.Value);
 
-            if (string.IsNullOrEmpty(tipo) || string.IsNullOrEmpty(id)) return;
+            string objType, securosId;
+            if (!ParseClientHandle(handle, out objType, out securosId)) return;
 
-            SendMessage(tipo, id, estado);
+            SendMessage(objType, securosId, state);
         }
 
-        private void SendMessage(string tipo, string id, string estado)
+        private static bool ParseClientHandle(string handle, out string objType, out string securosId)
+        {
+            objType = null;
+            securosId   = null;
+
+            if (string.IsNullOrEmpty(handle)) return false;
+
+            var parts = handle.Split('|');
+            if (parts.Length != 2) return false;
+
+            objType = parts[0];
+            securosId   = parts[1];
+            return !string.IsNullOrEmpty(objType) && !string.IsNullOrEmpty(securosId);
+        }
+
+        private void SendMessage(string objType, string securosId, string state)
         {
             if (!_Securos.IsConnected())
             {
@@ -66,34 +81,14 @@ namespace INTG_OPC_AVENAR_NET4_5
                 return;
             }
 
-            var msg = $"{tipo}|{id}|{estado}";
+            var msg = $"{objType}|{securosId}|{state}";
             _Securos.SendMessage(msg);
             Console.WriteLine($"[SecurOS] ← {msg}");
         }
 
         #endregion
 
-        #region Resolución de Tipo y Estado
-
-        private static string ResolveObjectType(string itemName)
-        {
-            if (itemName.Contains("Detector")) return "AVEJ1_DETECTOR";//ResolveDetectorSubtype(itemName);
-            if (itemName.Contains("Input"))    return "AVEJ1_INPUT";
-            if (itemName.Contains("NAC"))      return "AVEJ1_NAC";
-            if (itemName.Contains("Aux"))      return "AVEJ1_AUX_POWER";
-            if (itemName.Contains("Buzzer"))   return "AVEJ1_BUZZER";
-            return "";
-        }
-
-        //private static string ResolveDetectorSubtype(string itemName)
-        //{
-        //    var parts = itemName.Split('.');
-        //    if (parts.Length < 3) return "AV_DETECTOR";
-        //    var prefix = parts[2];
-        //    if (prefix == "1" || prefix == "4") return "AV_SENSOR_HUMO";
-        //    if (prefix == "2" || prefix == "3") return "AV_MONITOREO";
-        //    return "AV_DETECTOR";
-        //}
+        #region Resolución de Estado
 
         private static string ResolveState(object value) =>
             value?.ToString() == "5" ? "NORMAL" : "ACTIVATE_ON";

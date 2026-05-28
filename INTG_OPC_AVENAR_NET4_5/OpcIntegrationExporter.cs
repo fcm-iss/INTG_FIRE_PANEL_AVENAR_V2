@@ -180,7 +180,7 @@ namespace ISS.OPCMonitor
                 { "name",        "root" },
                 { "elementType", "branch" },
                 { "itemName",    "" },
-                { "id",          "" },
+                { "securosId",   "" },
                 { "children",    BuildChildNodes(null) }
             };
         }
@@ -209,7 +209,9 @@ namespace ISS.OPCMonitor
         /// <summary>
         /// Recorre recursivamente un nivel del árbol OPC y devuelve la lista de nodos hijos construidos.
         /// </summary>
-        private List<object> BuildChildNodes(ItemIdentifier parentId, int depth = 0, string parentIdStr = "")
+        private List<object> BuildChildNodes(ItemIdentifier parentId, int depth = 0,
+                                             string parentIdStr = "",
+                                             Dictionary<string, string> inheritedFields = null)
         {
             var elements = BrowseLevel(parentId);
 
@@ -227,7 +229,7 @@ namespace ISS.OPCMonitor
             foreach (var element in treeOrdered)
             {
                 string nodeId = ComputeNodeId(element.Name, depth, parentIdStr, ref childCounter);
-                var    node   = BuildNodeEntry(element, nodeId, depth, parentIdStr);
+                var    node   = BuildNodeEntry(element, nodeId, depth, parentIdStr, inheritedFields);
                 treeNodesAtCurrentLevel.Add(node);
             }
 
@@ -247,16 +249,49 @@ namespace ISS.OPCMonitor
         /// Construye el diccionario completo de un nodo: campos base, propiedades OPC y nodos hijos.
         /// </summary>
         private Dictionary<string, object> BuildNodeEntry(MergedElement element, string nodeId,
-                                                          int depth, string parentIdStr)
+                                                          int depth, string parentIdStr,
+                                                          Dictionary<string, string> inheritedFields = null)
         {
-            var elementType = DetermineElementType(element);
-            var itemName    = ResolveItemName(element);
-            var node        = CreateBaseNodeFields(element.Name, elementType, itemName, nodeId);
+            var elementType       = DetermineElementType(element);
+            var itemName          = ResolveItemName(element);
+            var node              = CreateBaseNodeFields(element.Name, elementType, itemName, nodeId);
+            var integrationFields = ComputeIntegrationFields(element.Name, elementType, depth, parentIdStr, inheritedFields);
 
+            AttachIntegrationFields(node, integrationFields);
             AttachItemPropertiesIfItem(node, element, itemName);
-            AttachChildrenIfBranch(node, element, depth, nodeId);
+            AttachChildrenIfBranch(node, element, depth, nodeId, integrationFields);
 
             return node;
+        }
+
+        private Dictionary<string, string> ComputeIntegrationFields(string name, string elementType,
+                                                                     int depth, string parentIdStr,
+                                                                     Dictionary<string, string> inherited)
+        {
+            if (string.IsNullOrEmpty(parentIdStr)) return null;
+            if (depth == 1)                        return BuildOwnIntegrationFields(name, elementType);
+            if (depth > 1 && inherited != null)    return inherited;
+            return null;
+        }
+
+        private Dictionary<string, string> BuildOwnIntegrationFields(string name, string elementType)
+        {
+            bool isBranch = elementType == "branch" || elementType == "branch|item";
+            var fields = new Dictionary<string, string>
+            {
+                ["objType"]  = _prefix + Normalize(name),
+                ["typeName"] = name
+            };
+            if (isBranch) fields["groupName"] = name;
+            return fields;
+        }
+
+        private static void AttachIntegrationFields(Dictionary<string, object> node,
+                                                    Dictionary<string, string> fields)
+        {
+            if (fields == null) return;
+            foreach (var kv in fields)
+                node[kv.Key] = kv.Value;
         }
 
         /// <summary>
@@ -287,7 +322,7 @@ namespace ISS.OPCMonitor
                 { "name",        name },
                 { "elementType", elementType },
                 { "itemName",    itemName },
-                { "id",          nodeId }
+                { "securosId",   nodeId }
             };
         }
 
@@ -309,7 +344,8 @@ namespace ISS.OPCMonitor
         /// Si no tiene hijos, establece hasItemChildren en false.
         /// </summary>
         private void AttachChildrenIfBranch(Dictionary<string, object> node,
-                                            MergedElement element, int depth, string nodeId)
+                                            MergedElement element, int depth, string nodeId,
+                                            Dictionary<string, string> integrationFields = null)
         {
             if (!element.HasChildren)
             {
@@ -318,7 +354,7 @@ namespace ISS.OPCMonitor
             }
 
             var childParentId       = new ItemIdentifier(element.BranchItemName ?? element.ItemItemName);
-            var children            = BuildChildNodes(childParentId, depth + 1, nodeId);
+            var children            = BuildChildNodes(childParentId, depth + 1, nodeId, integrationFields);
             node["hasItemChildren"] = HasDirectItemChildren(children);
             node["children"]        = children;
         }
@@ -493,17 +529,22 @@ namespace ISS.OPCMonitor
         {
             if (node == null) return;
 
-            RegisterPairIfValid(ReadStringField(node, "itemName"), ReadStringField(node, "id"), map);
+            var itemName  = ReadStringField(node, "itemName");
+            var securosId = ReadStringField(node, "securosId");
+            var objType   = ReadStringField(node, "objType");
+
+            RegisterPairIfValid(itemName, securosId, objType, map);
             VisitChildNodes(node, map);
         }
 
-        // Paso 6 — Registra el par en el mapa solo si itemName e id son no vacíos.
-        //          Nodos raíz, paneles y elementos sin itemName quedan excluidos.
-        private static void RegisterPairIfValid(string itemName, string nodeId,
+        // Paso 6 — Registra el par en el mapa solo si itemName y securosId son no vacíos.
+        //          ClientHandle = objType|securosId cuando objType existe, si no solo securosId.
+        private static void RegisterPairIfValid(string itemName, string securosId, string objType,
                                                 Dictionary<string, string> map)
         {
-            if (!string.IsNullOrEmpty(itemName) && !string.IsNullOrEmpty(nodeId))
-                map[itemName] = nodeId;
+            if (string.IsNullOrEmpty(itemName) || string.IsNullOrEmpty(securosId)) return;
+            var clientHandle = string.IsNullOrEmpty(objType) ? securosId : $"{objType}|{securosId}";
+            map[itemName] = clientHandle;
         }
 
         // Paso 7 — Obtiene el array "children" del nodo y visita cada hijo.
@@ -585,7 +626,7 @@ namespace ISS.OPCMonitor
         }
 
         private static bool IsPanelNode(Dictionary<string, object> node) =>
-            !string.IsNullOrEmpty(ReadStringField(node, "id"));
+            !string.IsNullOrEmpty(ReadStringField(node, "securosId"));
 
         private static bool IsBranchNode(Dictionary<string, object> node)
         {
