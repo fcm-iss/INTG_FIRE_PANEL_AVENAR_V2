@@ -1,8 +1,12 @@
 using SecurosIIDK;
 using Opc.Da;
 using System;
+using System.Collections.Generic;
 using System.Configuration;
+using System.IO;
+using System.Text;
 using System.Threading;
+using System.Web.Script.Serialization;
 
 namespace INTG_OPC_AVENAR_NET4_5
 {
@@ -90,8 +94,44 @@ namespace INTG_OPC_AVENAR_NET4_5
 
         #region Resolución de Estado
 
-        private static string ResolveState(object value) =>
-            value?.ToString() == "5" ? "NORMAL" : "ACTIVATE_ON";
+        private static readonly Dictionary<int, string> _lzNameByCode = LoadLzNames();
+
+        private static Dictionary<int, string> LoadLzNames()
+        {
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "opc_states.json");
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("[SecurOS] opc_states.json no encontrado en Config\\");
+                return new Dictionary<int, string>();
+            }
+
+            var json    = File.ReadAllText(path, new UTF8Encoding(false));
+            var entries = new JavaScriptSerializer().Deserialize<List<Dictionary<string, object>>>(json);
+            return BuildLzNameMap(entries);
+        }
+
+        private static Dictionary<int, string> BuildLzNameMap(List<Dictionary<string, object>> entries)
+        {
+            var map = new Dictionary<int, string>();
+            foreach (var entry in entries)
+            {
+                object opcValue, lzName;
+                if (!entry.TryGetValue("opcValue", out opcValue) || !entry.TryGetValue("lzName", out lzName))
+                    continue;
+
+                int code;
+                if (int.TryParse(opcValue?.ToString(), out code))
+                    map[code] = lzName?.ToString() ?? "";
+            }
+            return map;
+        }
+
+        private static string ResolveState(object value)
+        {
+            string lzName;
+            if (!int.TryParse(value?.ToString(), out int code)) return "";
+            return _lzNameByCode.TryGetValue(code, out lzName) ? lzName : "";
+        }
 
         #endregion
     }

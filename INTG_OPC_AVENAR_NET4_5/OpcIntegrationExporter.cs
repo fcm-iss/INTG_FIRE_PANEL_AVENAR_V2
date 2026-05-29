@@ -649,7 +649,7 @@ namespace ISS.OPCMonitor
                 if (!IsPanelNode(panelNode)) continue;
 
                 string panelName = ReadStringField(panelNode, "name");
-                string panelType = _prefix + Normalize(panelName);
+                string panelType = _prefix + StripDigits(Normalize(panelName));
                 if (!seenPanels.Add(panelType)) continue;
 
                 var children = BuildTypeChildrenFromPanel(panelNode, allowedChildTypes);
@@ -748,71 +748,183 @@ namespace ISS.OPCMonitor
         // ExportDdiFile  →  integration_*.ddi
         // ══════════════════════════════════════════════════════════════════
 
+        private static List<Tuple<string, string, string>> BuildOpcStateEventRows(
+            List<string> types, List<OpcStateEntry> opcStates)
+        {
+            var result = new List<Tuple<string, string, string>>();
+            foreach (var t in types)
+                foreach (var s in opcStates)
+                    result.Add(Tuple.Create(t, s.LzName, s.DescriptionEs));
+            return result;
+        }
+
+        private static List<Tuple<string, string, string, string>> BuildOpcStateStateRows(
+            List<string> types, List<OpcStateEntry> opcStates)
+        {
+            var result = new List<Tuple<string, string, string, string>>();
+            foreach (var t in types)
+                foreach (var s in opcStates)
+                    result.Add(Tuple.Create(t, s.LzName, s.LzName, s.DescriptionEs));
+            return result;
+        }
+
         public void ExportDdiFile(string treeJsonPath, string outputPath, ICollection<string> allowedChildTypes = null)
         {
             Console.WriteLine("[OPC_Exporter] Building DDI file...");
 
             var rootNode  = LoadTreeFromJsonFile(treeJsonPath);
-            var structure = BuildIntegrationStructureFromTree(rootNode, allowedChildTypes);
-            var types     = new List<string>();
-            CollectUniqueTypes(structure, types);
+            var typeInfos = CollectTypeInfosFromTree(rootNode, allowedChildTypes);
+            var types     = typeInfos.Select(t => t.Item1).ToList();
+            var opcStates = LoadOpcStateEntries();
 
-            var events = CollectEventRowsFromTree(rootNode, allowedChildTypes);
+            var cmdEvents        = CollectEventRowsFromTree(rootNode, allowedChildTypes);
+            var typesWithGroup   = typeInfos.Where(t => !string.IsNullOrEmpty(t.Item3)).Select(t => t.Item1).ToList();
+            var opcEventRows     = BuildOpcStateEventRows(typesWithGroup, opcStates);
+            var opcStateRows     = BuildOpcStateStateRows(typesWithGroup, opcStates);
 
-            int c1 = Math.Max(22, Math.Max(
-                types.Count  > 0 ? types.Max(t => t.Length)        + 2 : 0,
-                events.Count > 0 ? events.Max(e => e.Item1.Length) + 2 : 0));
-            int c3base = types.Count  > 0 ? types.Max(t => t.Length) + 2 : 27;
-            int c4     = Math.Max(20, events.Count > 0 ? events.Max(e => e.Item3.Length) + 2 : 20);
-            int c5     = c4;
-            const int c2 = 27, c6 = 16;
-            int c3 = Math.Max(c3base, 27);
+            int c1 = ComputeC1Width(types, cmdEvents);
+            int c2 = Math.Max(27, typeInfos.Count > 0 ? typeInfos.Max(t => t.Item2.Length) + 2 : 27);
+            int c3 = Math.Max(27, typeInfos.Count > 0 ? typeInfos.Max(t => t.Item3.Length) + 2 : 27);
+            int c4 = ComputeDescriptionWidth(cmdEvents, opcStates);
+            int c5 = c4;
+            const int c6 = 16;
+
+            int cs2 = Math.Max(20, opcStateRows.Count > 0 ? opcStateRows.Max(r => r.Item2.Length) + 2 : 20);
+            int cs3 = Math.Max(7,  opcStateRows.Count > 0 ? opcStateRows.Max(r => r.Item3.Length) + 2 : 7);
+            int cs6 = Math.Max(16, opcStateRows.Count > 0 ? opcStateRows.Max(r => r.Item4.Length) + 2 : 16);
 
             var sb = new StringBuilder();
 
-            sb.AppendLine("[OBJTYPE]");
-            foreach (var t in types)
-            {
-                string baseName = t.StartsWith(_prefix) ? t.Substring(_prefix.Length) : t;
-                sb.AppendLine(Col(t, c1) + "|" + Col(baseName, c2) + "|" + Col(baseName, c3) + "|");
-            }
-            sb.AppendLine();
-
-            sb.AppendLine("[EVENT]");
-            foreach (var ev in events)
-                sb.AppendLine(Col(ev.Item1, c1) + "|" + Col(ev.Item2, c2) + "|" + Col("", c3) + "|" + Col(ev.Item3, c4) + "|" + Col("", c5) + "|");
-            sb.AppendLine();
-
-            sb.AppendLine("[REACT]");
-            foreach (var ev in events)
-                sb.AppendLine(Col(ev.Item1, c1) + "|" + Col(ev.Item2, c2) + "|" + Col("", c3) + "|" + Col("", c4) + "|" + Col(ev.Item3, c5) + "|" + Col("", c6) + "|");
-            sb.AppendLine();
-
-            var stateRows = BuildStateRows(events);
-            int cs2 = Math.Max(20, stateRows.Count > 0 ? stateRows.Max(r => r.Item2.Length) + 2 : 20);
-            int cs3 = 7;
-            int cs6 = Math.Max(16, stateRows.Count > 0 ? stateRows.Max(r => r.Item4.Length) + 2 : 16);
-
-            sb.AppendLine("[STATE]");
-            foreach (var sr in stateRows)
-                sb.AppendLine(Col(sr.Item1, c1) + "|" + Col(sr.Item2, cs2) + "|" + Col(sr.Item3, cs3) + "|" + Col("", c4) + "|" + Col("", c5) + "|" + Col(sr.Item4, cs6) + "|");
-            sb.AppendLine();
-
-            sb.AppendLine("[MARKER]");
-            sb.AppendLine();
-
-            var stateRuleRows = BuildStateRuleRows(events);
-            int csr2 = Math.Max(20, stateRuleRows.Count > 0 ? stateRuleRows.Max(r => r.Item2.Length) + 2 : 20);
-            int csr3 = Math.Max(16, stateRuleRows.Count > 0 ? stateRuleRows.Max(r => r.Item3.Length) + 2 : 16);
-            int csr4 = Math.Max(16, stateRuleRows.Count > 0 ? stateRuleRows.Max(r => r.Item4.Length) + 2 : 16);
-
-            sb.AppendLine("[STATE_RULE]");
-            foreach (var sr in stateRuleRows)
-                sb.AppendLine(Col(sr.Item1, c1) + "|" + Col(sr.Item2, csr2) + "|" + Col(sr.Item3, csr3) + "|" + Col(sr.Item4, csr4) + "|");
-            sb.AppendLine();
+            WriteObjTypeSection(sb, typeInfos, c1, c2, c3);
+            WriteEventSection(sb, cmdEvents, opcEventRows, c1, c2, c3, c4, c5);
+            WriteReactSection(sb, cmdEvents, opcEventRows, c1, c2, c3, c4, c5, c6);
+            WriteStateSection(sb, opcStateRows, c1, cs2, cs3, c4, c5, cs6);
+            WriteMarkerSection(sb);
+            WriteStateRuleSection(sb);
 
             File.WriteAllText(outputPath, sb.ToString(), new UTF8Encoding(false));
             Console.WriteLine("[OPC_Exporter] DDI file exported to: " + outputPath);
+        }
+
+        private static int ComputeC1Width(List<string> types,
+                                          List<Tuple<string, string, string>> cmdEvents) =>
+            Math.Max(22, Math.Max(
+                types.Count     > 0 ? types.Max(t => t.Length)        + 2 : 0,
+                cmdEvents.Count > 0 ? cmdEvents.Max(e => e.Item1.Length) + 2 : 0));
+
+        private static int ComputeDescriptionWidth(List<Tuple<string, string, string>> cmdEvents,
+                                                   List<OpcStateEntry> opcStates) =>
+            Math.Max(20, Math.Max(
+                cmdEvents.Count > 0 ? cmdEvents.Max(e => e.Item3.Length) + 2 : 0,
+                opcStates.Count > 0 ? opcStates.Max(s => s.DescriptionEs.Length) + 2 : 0));
+
+        private static void WriteObjTypeSection(StringBuilder sb,
+            List<Tuple<string, string, string>> typeInfos, int c1, int c2, int c3)
+        {
+            sb.AppendLine("[OBJTYPE]");
+            foreach (var ti in typeInfos)
+                sb.AppendLine(Col(ti.Item1, c1) + "|" + Col(ti.Item2, c2) + "|" + Col(ti.Item3, c3) + "|");
+            sb.AppendLine();
+        }
+
+        private static void WriteEventSection(StringBuilder sb,
+            List<Tuple<string, string, string>> cmdEvents,
+            List<Tuple<string, string, string>> opcEventRows,
+            int c1, int c2, int c3, int c4, int c5)
+        {
+            sb.AppendLine("[EVENT]");
+            foreach (var ev in cmdEvents)
+                sb.AppendLine(Col(ev.Item1, c1) + "|" + Col(ev.Item2, c2) + "|" + Col("", c3) + "|" + Col(ev.Item3, c4) + "|" + Col("", c5) + "|");
+            foreach (var ev in opcEventRows)
+                sb.AppendLine(Col(ev.Item1, c1) + "|" + Col(ev.Item2, c2) + "|" + Col("", c3) + "|" + Col(ev.Item3, c4) + "|" + Col("", c5) + "|");
+            sb.AppendLine();
+        }
+
+        private static void WriteReactSection(StringBuilder sb,
+            List<Tuple<string, string, string>> cmdEvents,
+            List<Tuple<string, string, string>> opcEventRows,
+            int c1, int c2, int c3, int c4, int c5, int c6)
+        {
+            sb.AppendLine("[REACT]");
+            foreach (var ev in cmdEvents)
+                sb.AppendLine(Col(ev.Item1, c1) + "|" + Col(ev.Item2, c2) + "|" + Col("", c3) + "|" + Col("", c4) + "|" + Col(ev.Item3, c5) + "|" + Col("", c6) + "|");
+            foreach (var ev in opcEventRows)
+                sb.AppendLine(Col(ev.Item1, c1) + "|" + Col(ev.Item2, c2) + "|" + Col("", c3) + "|" + Col("", c4) + "|" + Col(ev.Item3, c5) + "|" + Col("", c6) + "|");
+            sb.AppendLine();
+        }
+
+        private static void WriteStateSection(StringBuilder sb,
+            List<Tuple<string, string, string, string>> opcStateRows,
+            int c1, int cs2, int cs3, int c4, int c5, int cs6)
+        {
+            sb.AppendLine("[STATE]");
+            foreach (var sr in opcStateRows)
+                sb.AppendLine(Col(sr.Item1, c1) + "|" + Col(sr.Item2, cs2) + "|" + Col(sr.Item3, cs3) + "|" + Col("", c4) + "|" + Col("", c5) + "|" + Col(sr.Item4, cs6) + "|");
+            sb.AppendLine();
+        }
+
+        private static void WriteMarkerSection(StringBuilder sb)
+        {
+            sb.AppendLine("[MARKER]");
+            sb.AppendLine();
+        }
+
+        private static void WriteStateRuleSection(StringBuilder sb)
+        {
+            sb.AppendLine("[STATE_RULE]");
+            sb.AppendLine();
+        }
+
+        private List<Tuple<string, string, string>> CollectTypeInfosFromTree(
+            Dictionary<string, object> rootNode,
+            ICollection<string> allowedChildTypes)
+        {
+            var result    = new List<Tuple<string, string, string>>();
+            var seenTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            CollectPanelTypeInfos(rootNode, result, seenTypes);
+            CollectChildTypeInfos(rootNode, allowedChildTypes, result, seenTypes);
+
+            return result;
+        }
+
+        private void CollectPanelTypeInfos(Dictionary<string, object> rootNode,
+                                           List<Tuple<string, string, string>> result,
+                                           HashSet<string> seenTypes)
+        {
+            var prefixClean = _prefix.TrimEnd('_');
+
+            foreach (var panelNode in GetChildNodes(rootNode))
+            {
+                if (!IsPanelNode(panelNode)) continue;
+
+                string panelName = ReadStringField(panelNode, "name");
+                string objType   = _prefix + StripDigits(Normalize(panelName));
+                if (!seenTypes.Add(objType)) continue;
+
+                result.Add(Tuple.Create(objType, prefixClean + " " + StripDigits(panelName), ""));
+            }
+        }
+
+        private void CollectChildTypeInfos(Dictionary<string, object> rootNode,
+                                           ICollection<string> allowedChildTypes,
+                                           List<Tuple<string, string, string>> result,
+                                           HashSet<string> seenTypes)
+        {
+            var prefixClean = _prefix.TrimEnd('_');
+
+            foreach (var typeNode in GetTypeNodesFromTree(rootNode))
+            {
+                string name = ReadStringField(typeNode, "name");
+                if (!IsTypeAllowed(name, allowedChildTypes)) continue;
+
+                string objType = ReadStringField(typeNode, "objType");
+                if (string.IsNullOrEmpty(objType) || !seenTypes.Add(objType)) continue;
+
+                string typeName  = ReadStringField(typeNode, "typeName");
+                string groupName = ReadStringField(typeNode, "groupName");
+                result.Add(Tuple.Create(objType, prefixClean + " " + typeName, prefixClean + " " + groupName));
+            }
         }
 
         private List<Tuple<string, string, string>> CollectEventRowsFromTree(
@@ -973,6 +1085,41 @@ namespace ISS.OPCMonitor
 
         #region Modelos
 
+        private class OpcStateEntry
+        {
+            public string LzName        { get; set; }
+            public string DescriptionEs { get; set; }
+        }
+
+        private static List<OpcStateEntry> LoadOpcStateEntries()
+        {
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "opc_states.json");
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("[OPC_Exporter] opc_states.json no encontrado en Config\\");
+                return new List<OpcStateEntry>();
+            }
+            var raw = new JavaScriptSerializer().Deserialize<List<Dictionary<string, object>>>(
+                File.ReadAllText(path, new UTF8Encoding(false)));
+            return ParseOpcStateEntries(raw);
+        }
+
+        private static List<OpcStateEntry> ParseOpcStateEntries(List<Dictionary<string, object>> raw)
+        {
+            var seen   = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var result = new List<OpcStateEntry>();
+            foreach (var d in raw)
+            {
+                object lz, desc;
+                d.TryGetValue("lzName",        out lz);
+                d.TryGetValue("descriptionES", out desc);
+                var lzName = lz?.ToString() ?? "";
+                if (string.IsNullOrEmpty(lzName) || !seen.Add(lzName)) continue;
+                result.Add(new OpcStateEntry { LzName = lzName, DescriptionEs = desc?.ToString() ?? "" });
+            }
+            return result;
+        }
+
         private sealed class CmdProperty
         {
             public int    Code        { get; set; }
@@ -1032,9 +1179,12 @@ namespace ISS.OPCMonitor
 
         private static readonly Tuple<string, string, string>[] BaseStates =
         {
-            Tuple.Create("NORMAL", "NRM", "Normal"),
-            Tuple.Create("ALARM",  "ALM", "Alarma"),
-            Tuple.Create("FAULT",  "FLT", "Falla"),
+            Tuple.Create("NORMAL",           "NRM", "Normal"),
+            Tuple.Create("FALLO",            "FLL", "Fallo"),
+            Tuple.Create("PRE_ALARMA",       "PRE", "Pre-Alarma"),
+            Tuple.Create("ALARMA",           "ALM", "Alarma"),
+            Tuple.Create("ALARMA_INCENDIO",  "INC", "Alarma Incendio"),
+            Tuple.Create("MANTENIMIENTO",    "MNT", "Mantenimiento"),
         };
 
         private static readonly Dictionary<string, string> OffCommandFromState =

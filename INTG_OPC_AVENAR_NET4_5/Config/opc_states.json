@@ -1,0 +1,667 @@
+[
+  {
+    "opcValue": 0,
+    "description": "Missing Zone",
+    "descriptionES": "Zona Perdida",
+    "lzName": "FG",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 1,
+    "description": "Detector masking",
+    "descriptionES": "Enmascaramiento de Detector",
+    "lzName": "MAD",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 2,
+    "description": "Fade-out/Skip",
+    "descriptionES": "Desvanecimiento/Omision",
+    "lzName": "ABL",
+    "category": "NORMAL"
+  },
+  {
+    "opcValue": 3,
+    "description": "Zone switch off",
+    "descriptionES": "Zona Apagada",
+    "lzName": "ABS",
+    "category": "OFF"
+  },
+  {
+    "opcValue": 4,
+    "description": "Detector test",
+    "descriptionES": "Prueba de Detector",
+    "lzName": "TST",
+    "category": "NORMAL"
+  },
+  {
+    "opcValue": 5,
+    "description": "Stand-by/Control off",
+    "descriptionES": "Espera/Control Apagado",
+    "lzName": "GE",
+    "category": "STAND-BY"
+  },
+  {
+    "opcValue": 6,
+    "description": "Breakdown centr. part",
+    "descriptionES": "Falla de Componente Central",
+    "lzName": "G8",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 7,
+    "description": "Control On",
+    "descriptionES": "Control Encendido",
+    "lzName": "STE",
+    "category": "ON"
+  },
+  {
+    "opcValue": 8,
+    "description": "Malfunction ground",
+    "descriptionES": "Falla a Tierra",
+    "lzName": "ES",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 9,
+    "description": "Criterion -4",
+    "descriptionES": "Criterio -4",
+    "lzName": "K4",
+    "category": "PRE-ALARMA"
+  },
+  {
+    "opcValue": 10,
+    "description": "Criterion -3",
+    "descriptionES": "Criterio -3",
+    "lzName": "K3",
+    "category": "PRE-ALARMA"
+  },
+  {
+    "opcValue": 11,
+    "description": "Criterion -2",
+    "descriptionES": "Criterio -2",
+    "lzName": "K2",
+    "category": "PRE-ALARMA"
+  },
+  {
+    "opcValue": 12,
+    "description": "Malfunction generic",
+    "descriptionES": "Falla Generica",
+    "lzName": "G0",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 13,
+    "description": "Emergency alarm",
+    "descriptionES": "Alarma de Emergencia",
+    "lzName": "H1",
+    "category": "ALARMA"
+  },
+  {
+    "opcValue": 14,
+    "description": "Int-Fire",
+    "descriptionES": "Alarma Incendio Interna",
+    "lzName": "F3",
+    "category": "FIRE-ALARM"
+  },
+  {
+    "opcValue": 15,
+    "description": "Pre-Fire",
+    "descriptionES": "Prealarma de Incendio",
+    "lzName": "F2",
+    "category": "FIRE-ALARM"
+  },
+  {
+    "opcValue": 16,
+    "description": "Ext-Fire (TU)",
+    "descriptionES": "Alarma Incendio Externa (Trans. Urgente)",
+    "lzName": "F1",
+    "category": "FIRE-ALARM"
+  },
+  {
+    "opcValue": 17,
+    "description": "Trigger disarmed",
+    "descriptionES": "Disparo Desarmado",
+    "lzName": "A6",
+    "category": "NORMAL"
+  },
+  {
+    "opcValue": 18,
+    "description": "Intern-Alarm",
+    "descriptionES": "Alarma Interna",
+    "lzName": "A5",
+    "category": "ALARMA"
+  },
+  {
+    "opcValue": 19,
+    "description": "Int-Sabotage",
+    "descriptionES": "Sabotaje Interno",
+    "lzName": "A4",
+    "category": "ALARMA"
+  },
+  {
+    "opcValue": 20,
+    "description": "Ext-Sabotage (TU)",
+    "descriptionES": "Sabotaje Externo (Trans. Urgente)",
+    "lzName": "A3",
+    "category": "ALARMA"
+  },
+  {
+    "opcValue": 21,
+    "description": "Ext-Intrusion (TU)",
+    "descriptionES": "Intrusion Externa (Trans. Urgente)",
+    "lzName": "A2",
+    "category": "ALARMA"
+  },
+  {
+    "opcValue": 22,
+    "description": "Hold-up Alarm (TU)",
+    "descriptionES": "Alarma de Atraco (Trans. Urgente)",
+    "lzName": "A1",
+    "category": "ALARMA"
+  },
+  {
+    "opcValue": 23,
+    "description": "Ext-Malfunction/Ext-Fire (TU)",
+    "descriptionES": "Falla Ext./Incendio Ext. (Trans. Urgente)",
+    "lzName": "A0",
+    "category": "ALARMA"
+  },
+  {
+    "opcValue": 24,
+    "description": "Stand-by/Off",
+    "descriptionES": "Espera/Apagado",
+    "lzName": "PE",
+    "category": "STAND-BY"
+  },
+  {
+    "opcValue": 25,
+    "description": "On",
+    "descriptionES": "Encendido",
+    "lzName": "P2",
+    "category": "ON"
+  },
+  {
+    "opcValue": 26,
+    "description": "Acknowledgement",
+    "descriptionES": "Reconocimiento",
+    "lzName": "P3",
+    "category": "ACK"
+  },
+  {
+    "opcValue": 27,
+    "description": "Malfunction",
+    "descriptionES": "Falla",
+    "lzName": "P4",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 28,
+    "description": "Malfunction power supply",
+    "descriptionES": "Falla de Fuente de Alimentacion",
+    "lzName": "P5",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 29,
+    "description": "Switch Off",
+    "descriptionES": "Apagado",
+    "lzName": "P6",
+    "category": "OFF"
+  },
+  {
+    "opcValue": 30,
+    "description": "Alarm verification",
+    "descriptionES": "Verificacion de Alarma",
+    "lzName": "TEL",
+    "category": "PRE-ALARMA"
+  },
+  {
+    "opcValue": 31,
+    "description": "Address Blocking",
+    "descriptionES": "Bloqueo de Direccion",
+    "lzName": "ASP",
+    "category": "NORMAL"
+  },
+  {
+    "opcValue": 32,
+    "description": "Triggering generic",
+    "descriptionES": "Disparo Generico",
+    "lzName": "R-FG",
+    "category": "MNT-FALLO"
+  },
+  {
+    "opcValue": 33,
+    "description": "Maint.-Stand-by OMM",
+    "descriptionES": "Mant.-Espera OMM",
+    "lzName": "R-GE",
+    "category": "MNT-STAND-BY"
+  },
+  {
+    "opcValue": 34,
+    "description": "Maint.-Light Pollution",
+    "descriptionES": "Mant.-Contaminacion Leve",
+    "lzName": "R-G0",
+    "category": "MNT-FALLO"
+  },
+  {
+    "opcValue": 35,
+    "description": "Maint.-Heavy Pollution",
+    "descriptionES": "Mant.-Contaminacion Severa",
+    "lzName": "R-G2",
+    "category": "MNT-FALLO"
+  },
+  {
+    "opcValue": 36,
+    "description": "Maint.-Alarm OMM",
+    "descriptionES": "Mant.-Alarma OMM",
+    "lzName": "R-AL",
+    "category": "MNT-ALARMA"
+  },
+  {
+    "opcValue": 37,
+    "description": "Maint.-Stand-by/Control Off",
+    "descriptionES": "Mant.-Espera/Control Apagado",
+    "lzName": "R-GE",
+    "category": "MNT-STAND-BY"
+  },
+  {
+    "opcValue": 38,
+    "description": "Maint.-Breakdown Centr. Part",
+    "descriptionES": "Mant.-Falla de Componente Central",
+    "lzName": "R-G8",
+    "category": "MNT-FALLO"
+  },
+  {
+    "opcValue": 39,
+    "description": "Maint.-Control On",
+    "descriptionES": "Mant.-Control Encendido",
+    "lzName": "R-STE",
+    "category": "MNT-ON"
+  },
+  {
+    "opcValue": 40,
+    "description": "Maint.-Malfunction Ground",
+    "descriptionES": "Mant.-Falla a Tierra",
+    "lzName": "R-ES",
+    "category": "MNT-FALLO"
+  },
+  {
+    "opcValue": 41,
+    "description": "Maint.-Criterion-4",
+    "descriptionES": "Mant.-Criterio -4",
+    "lzName": "R-K4",
+    "category": "MNT-PRE-ALARMA"
+  },
+  {
+    "opcValue": 42,
+    "description": "Maint.-Criterion -3",
+    "descriptionES": "Mant.-Criterio -3",
+    "lzName": "R-K3",
+    "category": "MNT-PRE-ALARMA"
+  },
+  {
+    "opcValue": 43,
+    "description": "Maint.-Criterion -2",
+    "descriptionES": "Mant.-Criterio -2",
+    "lzName": "R-K2",
+    "category": "MNT-PRE-ALARMA"
+  },
+  {
+    "opcValue": 44,
+    "description": "Maint.-Malfunction",
+    "descriptionES": "Mant.-Falla",
+    "lzName": "R-G0",
+    "category": "MNT-FALLO"
+  },
+  {
+    "opcValue": 45,
+    "description": "Maint.-Emergency Alarm",
+    "descriptionES": "Mant.-Alarma de Emergencia",
+    "lzName": "R-H1",
+    "category": "MNT-ALARMA"
+  },
+  {
+    "opcValue": 46,
+    "description": "Maint.-Int-Fire",
+    "descriptionES": "Mant.-Incendio Interno",
+    "lzName": "R-F3",
+    "category": "MNT-FIRE-ALARM"
+  },
+  {
+    "opcValue": 47,
+    "description": "Maint.-Pre-Fire",
+    "descriptionES": "Mant.-Prealarma de Incendio",
+    "lzName": "R-F2",
+    "category": "MNT-FIRE-ALARM"
+  },
+  {
+    "opcValue": 48,
+    "description": "Maint.-Ext-Fire",
+    "descriptionES": "Mant.-Incendio Externo",
+    "lzName": "R-F1",
+    "category": "MNT-FIRE-ALARM"
+  },
+  {
+    "opcValue": 49,
+    "description": "Maint.-Triggering",
+    "descriptionES": "Mant.-Disparo",
+    "lzName": "R-A6",
+    "category": "MNT-NORMAL"
+  },
+  {
+    "opcValue": 50,
+    "description": "Maint.-Intern Alarm",
+    "descriptionES": "Mant.-Alarma Interna",
+    "lzName": "R-A5",
+    "category": "MNT-ALARMA"
+  },
+  {
+    "opcValue": 51,
+    "description": "Maint.-Alarm Thermo (UGM)",
+    "descriptionES": "Mant.-Alarma Termica (UGM)",
+    "lzName": "R-A4",
+    "category": "MNT-ALARMA"
+  },
+  {
+    "opcValue": 52,
+    "description": "Maint.-Alarm Optics (UGM)",
+    "descriptionES": "Mant.-Alarma Optica (UGM)",
+    "lzName": "R-A3",
+    "category": "MNT-ALARMA"
+  },
+  {
+    "opcValue": 53,
+    "description": "Maint.-Ext-Intrusion (UGM)",
+    "descriptionES": "Mant.-Intrusion Externa (UGM)",
+    "lzName": "R-A2",
+    "category": "MNT-ALARMA"
+  },
+  {
+    "opcValue": 54,
+    "description": "Pollution (UGM)",
+    "descriptionES": "Contaminacion (UGM)",
+    "lzName": "R-A1",
+    "category": "MNT-ALARMA"
+  },
+  {
+    "opcValue": 55,
+    "description": "Maint.-Malfunction-Ext",
+    "descriptionES": "Mant.-Falla Externa",
+    "lzName": "R-A0",
+    "category": "MNT-ALARMA"
+  },
+  {
+    "opcValue": 56,
+    "description": "Stand-by R-R/Max (UGM)",
+    "descriptionES": "Espera R-R/Max (UGM)",
+    "lzName": "R-PE",
+    "category": "MNT-STAND-BY"
+  },
+  {
+    "opcValue": 57,
+    "description": "Stand-by ThermoMax (UGM)",
+    "descriptionES": "Espera TerMax (UGM)",
+    "lzName": "R-P2",
+    "category": "MNT-ON"
+  },
+  {
+    "opcValue": 58,
+    "description": "Stand-by Optics (UGM)",
+    "descriptionES": "Espera Optica (UGM)",
+    "lzName": "R-P3",
+    "category": "MNT-ACK"
+  },
+  {
+    "opcValue": 59,
+    "description": "Alarm Pre-Level (UGM)",
+    "descriptionES": "Nivel Pre-Alarma (UGM)",
+    "lzName": "R-P4",
+    "category": "MNT-FALLO"
+  },
+  {
+    "opcValue": 60,
+    "description": "Fire-Int Thermo (UGM)",
+    "descriptionES": "Incendio Int. Termico (UGM)",
+    "lzName": "R-P5",
+    "category": "MNT-FALLO"
+  },
+  {
+    "opcValue": 61,
+    "description": "Fire-Int Optics (UGM)",
+    "descriptionES": "Incendio Int. Optico (UGM)",
+    "lzName": "R-P6",
+    "category": "MNT-OFF"
+  },
+  {
+    "opcValue": 62,
+    "description": "Fire-Ext Thermo (UGM)",
+    "descriptionES": "Incendio Ext. Termico (UGM)",
+    "lzName": "R-TEL",
+    "category": "MNT-PRE-ALARMA"
+  },
+  {
+    "opcValue": 63,
+    "description": "Fire-Ext Optics (UGM)",
+    "descriptionES": "Incendio Ext. Optico (UGM)",
+    "lzName": "R-ASP",
+    "category": "MNT-NORMAL"
+  },
+  {
+    "opcValue": 64,
+    "description": "Stand-by R-R/Max",
+    "descriptionES": "Espera R-R/Max",
+    "lzName": "GE-TD",
+    "category": "STAND-BY"
+  },
+  {
+    "opcValue": 65,
+    "description": "Stand-by TMax",
+    "descriptionES": "Espera TMax",
+    "lzName": "GE-TM",
+    "category": "STAND-BY"
+  },
+  {
+    "opcValue": 66,
+    "description": "Stand-by Optics",
+    "descriptionES": "Espera Optica",
+    "lzName": "GE-O",
+    "category": "STAND-BY"
+  },
+  {
+    "opcValue": 67,
+    "description": "Stand-by Combi",
+    "descriptionES": "Espera Combinado",
+    "lzName": "GE-K",
+    "category": "STAND-BY"
+  },
+  {
+    "opcValue": 68,
+    "description": "Light Pollution",
+    "descriptionES": "Contaminacion Leve",
+    "lzName": "V2",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 69,
+    "description": "Heavy Pollution",
+    "descriptionES": "Contaminacion Severa",
+    "lzName": "V1",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 70,
+    "description": "Heavy Pollution (Qty.)",
+    "descriptionES": "Contaminacion Severa (Cantidad)",
+    "lzName": "V0",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 71,
+    "description": "Alarm Pre-Level Ion",
+    "descriptionES": "Nivel Pre-Alarma Ionico",
+    "lzName": "AV-I",
+    "category": "PRE-ALARMA"
+  },
+  {
+    "opcValue": 72,
+    "description": "Alarm Pre-Level Optics",
+    "descriptionES": "Nivel Pre-Alarma Optico",
+    "lzName": "AV-O",
+    "category": "PRE-ALARMA"
+  },
+  {
+    "opcValue": 73,
+    "description": "Alarm Pre-Level Thermo",
+    "descriptionES": "Nivel Pre-Alarma Termico",
+    "lzName": "AV-T",
+    "category": "PRE-ALARMA"
+  },
+  {
+    "opcValue": 74,
+    "description": "Alarm Pre-Level Combi",
+    "descriptionES": "Nivel Pre-Alarma Combinado",
+    "lzName": "AV-K",
+    "category": "PRE-ALARMA"
+  },
+  {
+    "opcValue": 75,
+    "description": "Maint.-Alarm Optics",
+    "descriptionES": "Mant.-Alarma Optica",
+    "lzName": "R-F1-O",
+    "category": "MNT-FIRE-ALARM"
+  },
+  {
+    "opcValue": 76,
+    "description": "Maint.-Alarm Thermo",
+    "descriptionES": "Mant.-Alarma Termica",
+    "lzName": "R-F1-T",
+    "category": "MNT-FIRE-ALARM"
+  },
+  {
+    "opcValue": 77,
+    "description": "Maint.-Alarm Combi",
+    "descriptionES": "Mant.-Alarma Combinada",
+    "lzName": "R-F1-K",
+    "category": "MNT-FIRE-ALARM"
+  },
+  {
+    "opcValue": 78,
+    "description": "Fire-Ext Opt",
+    "descriptionES": "Incendio Ext. Optico",
+    "lzName": "F1-O",
+    "category": "FIRE-ALARM"
+  },
+  {
+    "opcValue": 79,
+    "description": "Fire-Ext Thermo",
+    "descriptionES": "Incendio Ext. Termico",
+    "lzName": "F1-T",
+    "category": "FIRE-ALARM"
+  },
+  {
+    "opcValue": 80,
+    "description": "Fire-Ext Combi",
+    "descriptionES": "Incendio Ext. Combinado",
+    "lzName": "F1-K",
+    "category": "FIRE-ALARM"
+  },
+  {
+    "opcValue": 81,
+    "description": "Call Fire Brigade",
+    "descriptionES": "Llamada a Bomberos",
+    "lzName": "FWR",
+    "category": "FIRE-ALARM"
+  },
+  {
+    "opcValue": 82,
+    "description": "Fire-Pre (TU)",
+    "descriptionES": "Prealarma Incendio (Trans. Urgente)",
+    "lzName": "F2-E",
+    "category": "FIRE-ALARM"
+  },
+  {
+    "opcValue": 83,
+    "description": "Fire-Int Opt",
+    "descriptionES": "Incendio Int. Optico",
+    "lzName": "F3-O",
+    "category": "FIRE-ALARM"
+  },
+  {
+    "opcValue": 84,
+    "description": "Fire-Int Therm",
+    "descriptionES": "Incendio Int. Termico",
+    "lzName": "F3-T",
+    "category": "FIRE-ALARM"
+  },
+  {
+    "opcValue": 85,
+    "description": "Fire-Int Combi",
+    "descriptionES": "Incendio Int. Combinado",
+    "lzName": "F3-K",
+    "category": "FIRE-ALARM"
+  },
+  {
+    "opcValue": 86,
+    "description": "Hold-up alarm with menace (TU)",
+    "descriptionES": "Alarma de Atraco con Amenaza (TU)",
+    "lzName": "A1-B",
+    "category": "ALARMA"
+  },
+  {
+    "opcValue": 88,
+    "description": "Stand-by Day/Internal",
+    "descriptionES": "Espera Modo Dia/Interno",
+    "lzName": "T-GE",
+    "category": "STAND-BY"
+  },
+  {
+    "opcValue": 89,
+    "description": "Periph. Control On",
+    "descriptionES": "Control Periferico Encendido",
+    "lzName": "P8",
+    "category": "ON"
+  },
+  {
+    "opcValue": 90,
+    "description": "Light Malfunction",
+    "descriptionES": "Falla de Luz",
+    "lzName": "G1",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 91,
+    "description": "Line Malfunction",
+    "descriptionES": "Falla de Linea",
+    "lzName": "G2",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 92,
+    "description": "End of Paper",
+    "descriptionES": "Fin de Papel",
+    "lzName": "PA",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 93,
+    "description": "Triggering Disarmed",
+    "descriptionES": "Disparo Desarmado",
+    "lzName": "A7",
+    "category": "OFF"
+  },
+  {
+    "opcValue": 94,
+    "description": "Mains Fault",
+    "descriptionES": "Falla de Red Electrica",
+    "lzName": "NEF",
+    "category": "FALLO"
+  },
+  {
+    "opcValue": 95,
+    "description": "Battery Fault",
+    "descriptionES": "Falla de Bateria",
+    "lzName": "BF",
+    "category": "FALLO"
+  }
+]

@@ -36,19 +36,27 @@ namespace INTG_OPC_AVENAR_NET4_5
         // Exportación OPC
         // ══════════════════════════════════════════════════════════════════
 
+        private static string[] ResolveAllowedTypes()
+        {
+            var raw = ConfigurationManager.AppSettings["allowed_types"];
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            return Array.ConvertAll(raw.Split(','), t => t.Trim());
+        }
+
         private static string ExportOpcFiles(OpcClient opcClient, string selectedUrl)
         {
             var ddiPrefix    = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
             var exporter     = new OpcIntegrationExporter(opcClient.Server, ddiPrefix, selectedUrl);
             var timestamp    = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             var baseDir      = AppDomain.CurrentDomain.BaseDirectory;
-            var allowedTypes = new[] { "Detector", "Input", "NAC", "Aux Power", "Buzzer" };
+            var allowedTypes = ResolveAllowedTypes();
+            var prefixClean  = ddiPrefix.TrimEnd('_').ToLower();
 
             var exporterPath    = Path.Combine(baseDir, $"treeExporter_{timestamp}.json");
             var commandPath     = Path.Combine(baseDir, $"commands_{timestamp}.json");
-            var integrationPath = Path.Combine(baseDir, $"integration_{timestamp}.json");
-            var ddiPath         = Path.Combine(baseDir, $"integration_{timestamp}.ddi");
-            var dbiPath         = Path.ChangeExtension(ddiPath, ".dbi");
+            var integrationPath = Path.Combine(baseDir, $"{timestamp}_{prefixClean}.integration.json");
+            var ddiPath         = Path.Combine(baseDir, $"{timestamp}_securos.{prefixClean}.ddi");
+            var dbiPath         = Path.Combine(baseDir, $"{timestamp}_securos.{prefixClean}.dbi");
 
             exporter.ExportOpcTreeWithPropertiesToJson(exporterPath);
             exporter.ExportCommandsToJson(commandPath);
