@@ -18,8 +18,7 @@ namespace INTG_OPC_AVENAR_NET4_5
 
         private static void RunApp()
         {
-            var securOs = SecurOsEventSender.Connect();
-
+            using (var securOs = SecurOsEventSender.Connect())
             using (var opcClient = new OpcClient())
             {
                 var selectedUrl = DiscoverAndSelectOpcServer(opcClient);

@@ -10,15 +10,23 @@ using System.Web.Script.Serialization;
 
 namespace INTG_OPC_AVENAR_NET4_5
 {
-    class SecurOsEventSender
+    class SecurOsEventSender : IDisposable
     {
         #region Campos y Constructor
 
         private readonly IidkManager _Securos;
+        private bool _disposed;
 
         private SecurOsEventSender(IidkManager iidkManager)
         {
             _Securos = iidkManager;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            (_Securos as IDisposable)?.Dispose();
+            _disposed = true;
         }
 
         public static SecurOsEventSender Connect()
@@ -35,16 +43,20 @@ namespace INTG_OPC_AVENAR_NET4_5
         private static void WaitForConnection(IidkManager manager, string host, string port, string id)
         {
             const int TimeoutMs = 5000;
-            using (var connected = new ManualResetEventSlim(false))
-            {
-                manager.OnConnectionStateChanged += state => { if (state) connected.Set(); };
-                manager.SyncConnect(host, port, id);
+            var connected = new ManualResetEventSlim(false);
 
-                if (connected.Wait(TimeoutMs))
-                    Console.WriteLine($"[SecurOS] Conectado → {host}:{port} id={id}");
-                else
-                    Console.WriteLine($"[SecurOS] Timeout esperando conexión a {host}:{port}");
-            }
+            manager.OnConnectionStateChanged += state =>
+            {
+                if (state) try { connected.Set(); } catch (ObjectDisposedException) { }
+            };
+
+            manager.SyncConnect(host, port, id);
+            bool ok = connected.Wait(TimeoutMs);
+            connected.Dispose();
+
+            Console.WriteLine(ok
+                ? $"[SecurOS] Conectado → {host}:{port} id={id}"
+                : $"[SecurOS] Timeout esperando conexión a {host}:{port}");
         }
 
         #endregion
