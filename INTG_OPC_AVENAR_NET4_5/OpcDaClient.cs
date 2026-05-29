@@ -30,10 +30,6 @@ namespace INTG_OPC
         public bool IsConnected => _opcDaServer != null && _opcDaServer.IsConnected;
         public Opc.Da.Server Server => _opcDaServer;
 
-        /// <summary>
-        /// Se dispara cada vez que el servidor OPC detecta un cambio
-        /// en un ítem del panel (valor o quality).
-        /// </summary>
         public event Action<ItemValueResult[]> PanelChanged;
 
         public OpcClient() { }
@@ -170,14 +166,14 @@ namespace INTG_OPC
         /// Inicia el monitoreo de cambios del panel: crea el grupo de suscripción OPC,
         /// registra los ítems con sus ClientHandles y comienza a escuchar eventos.
         /// </summary>
-        public bool StartIntegrationMonitoring(Dictionary<string, string> nodeIdMapByItemName = null)
+        public bool StartIntegrationMonitoring(Dictionary<string, string> nodeIdMapByItemName = null, int updateRateMs = 1000)
         {
             ThrowIfNotConnected();
             Console.WriteLine("[OPC_Client] Inicializando grupo de suscripción...");
 
             try
             {
-                CreateSubscriptionGroup(groupName: "FPA5000_Group", updateRateMs: 5000);
+                CreateSubscriptionGroup(groupName: "FPA5000_Group", updateRateMs: updateRateMs);
 
                 if (!RegisterItemsInGroup(nodeIdMapByItemName, groupName: "FPA5000_Group"))
                     return false;
@@ -221,7 +217,11 @@ namespace INTG_OPC
 
         private void AttachDataChangedHandler()
         {
-            _subscription.DataChanged += (s, r, values) => PanelChanged?.Invoke(values);
+            _subscription.DataChanged += (s, r, values) =>
+            {
+                try   { if (values != null) PanelChanged?.Invoke(values); }
+                catch (Exception ex) { Console.WriteLine($"[OPC_Client] Error en DataChanged: {ex.Message}"); }
+            };
         }
 
         private static SubscriptionState BuildGroupState(string name, int updateRateMs) =>

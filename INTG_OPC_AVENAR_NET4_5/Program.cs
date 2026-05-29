@@ -13,6 +13,11 @@ namespace INTG_OPC_AVENAR_NET4_5
         [STAThread]
         static void Main(string[] args)
         {
+            RunApp();
+        }
+
+        private static void RunApp()
+        {
             var securOs = SecurOsEventSender.Connect();
 
             using (var opcClient = new OpcClient())
@@ -26,15 +31,31 @@ namespace INTG_OPC_AVENAR_NET4_5
                     return;
                 }
 
-                var exporterPath = ExportOpcFiles(opcClient, selectedUrl);
+                var exporterPath = ConfirmCreateIntegrationFiles()
+                    ? ExportOpcFiles(opcClient, selectedUrl)
+                    : FindLatestTreeExporterFile();
 
-                StartMonitoring(opcClient, exporterPath, securOs);
+                if (string.IsNullOrEmpty(exporterPath))
+                {
+                    Console.WriteLine("[APP] No hay archivo de árbol disponible. Monitoreo no disponible.");
+                    return;
+                }
+
+                if (ConfirmStartMonitoring())
+                    StartMonitoring(opcClient, exporterPath, securOs, ResolveUpdateRateMs());
             }
         }
 
         // ══════════════════════════════════════════════════════════════════
         // Exportación OPC
         // ══════════════════════════════════════════════════════════════════
+
+        private static int ResolveUpdateRateMs()
+        {
+            var raw = ConfigurationManager.AppSettings["monitoring_update_rate_ms"];
+            int ms;
+            return int.TryParse(raw, out ms) && ms > 0 ? ms : 1000;
+        }
 
         private static string[] ResolveAllowedTypes()
         {
@@ -71,17 +92,52 @@ namespace INTG_OPC_AVENAR_NET4_5
         // Monitoreo
         // ══════════════════════════════════════════════════════════════════
 
-        private static void StartMonitoring(OpcClient opcClient, string exporterPath, SecurOsEventSender securOs)
+        private static bool ConfirmCreateIntegrationFiles()
+        {
+            Console.WriteLine("\n==================================================");
+            Console.Write("[APP] ¿Desea generar los archivos de integración? (s/n): ");
+            var answer = Console.ReadLine()?.Trim() ?? "";
+            return answer.Equals("s", StringComparison.OrdinalIgnoreCase)
+                || answer.Equals("si", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string FindLatestTreeExporterFile()
+        {
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var files   = Directory.GetFiles(baseDir, "treeExporter_*.json");
+
+            if (files.Length == 0)
+            {
+                Console.WriteLine("[APP] No se encontró ningún archivo treeExporter previo.");
+                return null;
+            }
+
+            Array.Sort(files);
+            var latest = files[files.Length - 1];
+            Console.WriteLine($"[APP] Usando archivo existente: {Path.GetFileName(latest)}");
+            return latest;
+        }
+
+        private static bool ConfirmStartMonitoring()
+        {
+            Console.WriteLine("\n==================================================");
+            Console.Write("[APP] ¿Desea iniciar el monitoreo? (s/n): ");
+            var answer = Console.ReadLine()?.Trim() ?? "";
+            return answer.Equals("s", StringComparison.OrdinalIgnoreCase)
+                || answer.Equals("si", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void StartMonitoring(OpcClient opcClient, string exporterPath, SecurOsEventSender securOs, int updateRateMs)
         {
             var nodeIdMapByItemName = OpcIntegrationExporter.BuildNodeIdMapFromTreeJson(exporterPath);
 
-            if (!opcClient.StartIntegrationMonitoring(nodeIdMapByItemName))
+            if (!opcClient.StartIntegrationMonitoring(nodeIdMapByItemName, updateRateMs))
             {
                 Console.WriteLine("[APP] No se pudo inicializar el grupo. Abortando.");
                 return;
             }
 
-            opcClient.PanelChanged += (values) => OnPanelChanged(values, securOs);
+            opcClient.PanelChanged += values => OnPanelChanged(values, securOs);
 
             Console.WriteLine("\n==================================================");
             Console.WriteLine("[APP] Presiona cualquier tecla para desconectar...");
