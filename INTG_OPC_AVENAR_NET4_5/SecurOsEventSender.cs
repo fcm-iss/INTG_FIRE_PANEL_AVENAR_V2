@@ -17,9 +17,12 @@ namespace INTG_OPC_AVENAR_NET4_5
         private readonly IidkManager _Securos;
         private bool _disposed;
 
+        public event Action<SecurOsMessage> MessageReceived;
+
         private SecurOsEventSender(IidkManager iidkManager)
         {
             _Securos = iidkManager;
+            _Securos.OnSecurOSMessage += OnMessageReceived;
         }
 
         public void Dispose()
@@ -57,6 +60,50 @@ namespace INTG_OPC_AVENAR_NET4_5
             Console.WriteLine(ok
                 ? $"[SecurOS] Conectado → {host}:{port} id={id}"
                 : $"[SecurOS] Timeout esperando conexión a {host}:{port}");
+        }
+
+        #endregion
+
+        #region Recepción de Mensajes
+
+        private void OnMessageReceived(SecurosIIDK.Message iidk)
+        {
+            try
+            {
+                if (!iidk.IsValid) return;
+
+                var msg = BuildSecurOsMessage(iidk);
+                Console.WriteLine($"[SecurOS] → Type:{msg.ObjType} Id:{msg.Id} Action:{msg.EventName} Params:{msg.Params}");
+                MessageReceived?.Invoke(msg);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SecurOS] Error al procesar mensaje: {ex.Message}");
+            }
+        }
+
+        private static SecurOsMessage BuildSecurOsMessage(SecurosIIDK.Message iidk)
+        {
+            return new SecurOsMessage
+            {
+                ObjType   = iidk.Type   ?? "",
+                Id        = iidk.Id     ?? "",
+                EventName = iidk.Action ?? "",
+                Params    = BuildParamsString(iidk.Params)
+            };
+        }
+
+        private static string BuildParamsString(SecurosIIDK.IMessageParameters parameters)
+        {
+            if (parameters == null) return "";
+
+            var sb = new StringBuilder();
+            foreach (string key in parameters.Keys)
+            {
+                if (sb.Length > 0) sb.Append(", ");
+                sb.Append($"{key}={parameters.GetAs<string>(key)}");
+            }
+            return sb.ToString();
         }
 
         #endregion
@@ -146,5 +193,13 @@ namespace INTG_OPC_AVENAR_NET4_5
         }
 
         #endregion
+    }
+
+    class SecurOsMessage
+    {
+        public string ObjType   { get; set; }
+        public string Id        { get; set; }
+        public string EventName { get; set; }
+        public string Params    { get; set; }
     }
 }

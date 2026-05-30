@@ -26,14 +26,14 @@ namespace INTG_OPC_AVENAR_NET4_5
 
                 if (!opcClient.Connect(selectedUrl))
                 {
-                    Console.WriteLine("[APP] No se pudo establecer conexión. Abortando.");
+                    Console.WriteLine("[APP] No se pudo establecer conexión con el servidor OPC. Abortando.");
                     return;
                 }
 
                 var exporterPath = ConfirmCreateIntegrationFiles()
                     ? ExportOpcFiles(opcClient, selectedUrl)
                     : FindLatestTreeExporterFile();
-
+                    
                 if (string.IsNullOrEmpty(exporterPath))
                 {
                     Console.WriteLine("[APP] No hay archivo de árbol disponible. Monitoreo no disponible.");
@@ -136,7 +136,8 @@ namespace INTG_OPC_AVENAR_NET4_5
                 return;
             }
 
-            opcClient.PanelChanged += values => OnPanelChanged(values, securOs);
+            opcClient.PanelChanged  += values => OnPanelChanged(values, securOs);
+            securOs.MessageReceived += msg    => OnSecurOsMessage(msg);
 
             Console.WriteLine("\n==================================================");
             Console.WriteLine("[APP] Presiona cualquier tecla para desconectar...");
@@ -159,6 +160,11 @@ namespace INTG_OPC_AVENAR_NET4_5
         {
             Console.WriteLine($"[PANEL] Cambio: {item.ItemName} - {item.ClientHandle} = {item.Value}");
             securOs.Send(item);
+        }
+
+        private static void OnSecurOsMessage(SecurOsMessage msg)
+        {
+            Console.WriteLine($"[SecurOS] Comando recibido — ObjType: {msg.ObjType} | Id: {msg.Id} | Evento: {msg.EventName} | Params: {msg.Params}");
         }
 
         // ══════════════════════════════════════════════════════════════════
