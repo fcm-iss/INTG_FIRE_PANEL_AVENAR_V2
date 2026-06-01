@@ -1,4 +1,5 @@
 using INTG_OPC;
+using INTG_OPC_AVENAR_NET4_5.Models;
 using ISS.OPCMonitor;
 using Opc.Da;
 using System;
@@ -18,7 +19,7 @@ namespace INTG_OPC_AVENAR_NET4_5
 
         private static void RunApp()
         {
-            using (var securOs = SecurOsEventSender.Connect())
+            using (var securOs = SecurOsConnector.Connect())
             using (var opcClient = new OpcClient())
             {
                 var selectedUrl = DiscoverAndSelectOpcServer(opcClient);
@@ -26,7 +27,7 @@ namespace INTG_OPC_AVENAR_NET4_5
 
                 if (!opcClient.Connect(selectedUrl))
                 {
-                    Console.WriteLine("[APP] No se pudo establecer conexión con el servidor OPC. Abortando.");
+                    Console.WriteLine("[APP]\t\tNo se pudo establecer conexión con el servidor OPC. Abortando.");
                     return;
                 }
 
@@ -36,7 +37,7 @@ namespace INTG_OPC_AVENAR_NET4_5
                     
                 if (string.IsNullOrEmpty(exporterPath))
                 {
-                    Console.WriteLine("[APP] No hay archivo de árbol disponible. Monitoreo no disponible.");
+                    Console.WriteLine("[APP]\t\tNo hay archivo de árbol disponible. Monitoreo no disponible.");
                     return;
                 }
 
@@ -94,7 +95,7 @@ namespace INTG_OPC_AVENAR_NET4_5
         private static bool ConfirmCreateIntegrationFiles()
         {
             Console.WriteLine("\n==================================================");
-            Console.Write("[APP] ¿Desea generar los archivos de integración? (s/n): ");
+            Console.Write("[APP]\t\t¿Desea generar los archivos de integración? (s/n): ");
             var answer = Console.ReadLine()?.Trim() ?? "";
             return answer.Equals("s", StringComparison.OrdinalIgnoreCase)
                 || answer.Equals("si", StringComparison.OrdinalIgnoreCase);
@@ -107,32 +108,32 @@ namespace INTG_OPC_AVENAR_NET4_5
 
             if (files.Length == 0)
             {
-                Console.WriteLine("[APP] No se encontró ningún archivo treeExporter previo.");
+                Console.WriteLine("[APP]\t\tNo se encontró ningún archivo treeExporter previo.");
                 return null;
             }
 
             Array.Sort(files);
             var latest = files[files.Length - 1];
-            Console.WriteLine($"[APP] Usando archivo existente: {Path.GetFileName(latest)}");
+            Console.WriteLine($"[APP]\t\tUsando archivo existente: {Path.GetFileName(latest)}");
             return latest;
         }
 
         private static bool ConfirmStartMonitoring()
         {
             Console.WriteLine("\n==================================================");
-            Console.Write("[APP] ¿Desea iniciar el monitoreo? (s/n): ");
+            Console.Write("[APP]\t\t¿Desea iniciar el monitoreo? (s/n): ");
             var answer = Console.ReadLine()?.Trim() ?? "";
             return answer.Equals("s", StringComparison.OrdinalIgnoreCase)
                 || answer.Equals("si", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static void StartMonitoring(OpcClient opcClient, string exporterPath, SecurOsEventSender securOs, int updateRateMs)
+        private static void StartMonitoring(OpcClient opcClient, string exporterPath, SecurOsConnector securOs, int updateRateMs)
         {
             var nodeIdMapByItemName = OpcIntegrationExporter.BuildNodeIdMapFromTreeJson(exporterPath);
 
             if (!opcClient.StartIntegrationMonitoring(nodeIdMapByItemName, updateRateMs))
             {
-                Console.WriteLine("[APP] No se pudo inicializar el grupo. Abortando.");
+                Console.WriteLine("[APP]\t\tNo se pudo inicializar el grupo. Abortando.");
                 return;
             }
 
@@ -140,31 +141,31 @@ namespace INTG_OPC_AVENAR_NET4_5
             securOs.MessageReceived += msg    => OnSecurOsMessage(msg);
 
             Console.WriteLine("\n==================================================");
-            Console.WriteLine("[APP] Presiona cualquier tecla para desconectar...");
+            Console.WriteLine("[APP]\t\tPresiona cualquier tecla para desconectar...");
             Console.WriteLine("==================================================\n");
             Console.ReadKey();
         }
 
-        private static void OnPanelChanged(ItemValueResult[] itemsValue, SecurOsEventSender securOs)
+        private static void OnPanelChanged(ItemValueResult[] itemsValue, SecurOsConnector securOs)
         {
             foreach (var item in itemsValue)
             {
                 if (item.Quality.QualityBits == qualityBits.bad)
-                    Console.WriteLine($"[PANEL] Desconectado — ítem: {item.ItemName}");
+                    Console.WriteLine($"[PANEL]\t\tDesconectado — ítem: {item.ItemName}");
                 else
                     HandleValidItem(item, securOs);
             }
         }
 
-        private static void HandleValidItem(ItemValueResult item, SecurOsEventSender securOs)
+        private static void HandleValidItem(ItemValueResult item, SecurOsConnector securOs)
         {
-            Console.WriteLine($"[PANEL] Cambio: {item.ItemName} - {item.ClientHandle} = {item.Value}");
+            Console.WriteLine($"[PANEL]\t\tCambio: {item.ItemName} - {item.ClientHandle} = {item.Value}");
             securOs.Send(item);
         }
 
         private static void OnSecurOsMessage(SecurOsMessage msg)
         {
-            Console.WriteLine($"[SecurOS] Comando recibido — ObjType: {msg.ObjType} | Id: {msg.Id} | Evento: {msg.EventName} | Params: {msg.Params}");
+            Console.WriteLine($"[SecurOS]\tComando recibido — ObjType: {msg.ObjType} | Id: {msg.Id} | Evento: {msg.EventName} | Params: {msg.Params}");
         }
 
         // ══════════════════════════════════════════════════════════════════
@@ -177,13 +178,13 @@ namespace INTG_OPC_AVENAR_NET4_5
 
             if (servers == null || servers.Count == 0)
             {
-                Console.WriteLine("[APP] No se encontraron servidores OPC disponibles.");
+                Console.WriteLine("[APP]\t\tNo se encontraron servidores OPC disponibles.");
                 return null;
             }
 
             if (servers.Count == 1)
             {
-                Console.WriteLine($"[APP] Servidor seleccionado: {servers[0]}");
+                Console.WriteLine($"[APP]\t\tServidor seleccionado: {servers[0]}");
                 return servers[0];
             }
 
@@ -199,19 +200,19 @@ namespace INTG_OPC_AVENAR_NET4_5
 
                 if (!int.TryParse(Console.ReadLine()?.Trim(), out selectedOption))
                 {
-                    Console.WriteLine("[APP] Por favor ingrese un número válido.");
+                    Console.WriteLine("[APP]\t\tPor favor ingrese un número válido.");
                     selectedOption = 0;
                 }
                 else if (selectedOption < 1 || selectedOption > servers.Count)
                 {
-                    Console.WriteLine("[APP] Opción seleccionada no existe, intente de nuevo.");
+                    Console.WriteLine("[APP]\t\tOpción seleccionada no existe, intente de nuevo.");
                     selectedOption = 0;
                 }
 
             } while (selectedOption < 1 || selectedOption > servers.Count);
 
             var selected = servers[selectedOption - 1];
-            Console.WriteLine($"[APP] Servidor seleccionado: {selected}");
+            Console.WriteLine($"[APP]\t\tServidor seleccionado: {selected}");
             return selected;
         }
 

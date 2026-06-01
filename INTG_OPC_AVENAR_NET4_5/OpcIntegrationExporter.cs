@@ -48,11 +48,11 @@ namespace ISS.OPCMonitor
                 var json  = SerializeCmdJson(props, _serverUrl, DateTime.Now);
 
                 File.WriteAllText(outputPath, json, new UTF8Encoding(false));
-                Console.WriteLine($"[OPC_Exporter] Comandos CMD exportados: {outputPath}");
+                Console.WriteLine($"[OPC_Exporter]\t\tComandos CMD exportados: {outputPath}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[OPC_Exporter] Error al exportar comandos CMD: {ex.Message}");
+                Console.WriteLine($"[OPC_Exporter]\t\tError al exportar comandos CMD: {ex.Message}");
             }
         }
 
@@ -106,7 +106,7 @@ namespace ISS.OPCMonitor
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[OPC_Exporter] Error al leer propiedades de '{itemName}': {ex.Message}");
+                Console.WriteLine($"[OPC_Exporter]\t\tError al leer propiedades de '{itemName}': {ex.Message}");
                 return new List<CmdProperty>();
             }
         }
@@ -161,13 +161,13 @@ namespace ISS.OPCMonitor
         /// </summary>
         public void ExportOpcTreeWithPropertiesToJson(string outputPath)
         {
-            Console.WriteLine("[OPC_Exporter] Building OPC tree...");
+            Console.WriteLine("[OPC_Exporter]\t\tBuilding OPC tree...");
 
             var rootNode = BuildRootNode();
             var json     = SerializeTreeToJson(rootNode);
             WriteJsonToFile(json, outputPath);
 
-            Console.WriteLine("[OPC_Exporter] Tree exported to: " + outputPath);
+            Console.WriteLine("[OPC_Exporter]\t\tTree exported to: " + outputPath);
         }
 
         /// <summary>
@@ -242,7 +242,7 @@ namespace ISS.OPCMonitor
         private static void LogBrowsedElements(BrowseElement[] elements)
         {
             foreach (var e in elements)
-                Console.WriteLine($"[OPC_Exporter] Name='{e.Name}' ItemName='{e.ItemName}' HasChildren={e.HasChildren} IsItem={e.IsItem}");
+                Console.WriteLine($"[OPC_Exporter]\t\tName='{e.Name}' ItemName='{e.ItemName}' HasChildren={e.HasChildren} IsItem={e.IsItem}");
         }
 
         /// <summary>
@@ -380,7 +380,7 @@ namespace ISS.OPCMonitor
             catch (Exception ex)
             {
                 var nodeName = parentId?.ItemName ?? "root";
-                Console.WriteLine($"[OPC_Exporter] Browse error at '{nodeName}': {ex.Message}");
+                Console.WriteLine($"[OPC_Exporter]\t\tBrowse error at '{nodeName}': {ex.Message}");
                 return null;
             }
         }
@@ -495,7 +495,7 @@ namespace ISS.OPCMonitor
             var rootNode = DeserializeJsonRootNode(json);
             var map      = CollectItemIdPairsFromNode(rootNode);
 
-            Console.WriteLine($"[OPC_Exporter] Mapa ItemName→id extraído del JSON: {map.Count} ítems.");
+            Console.WriteLine($"[OPC_Exporter]\t\tMapa ItemName→id extraído del JSON: {map.Count} ítems.");
             return map;
         }
 
@@ -578,7 +578,7 @@ namespace ISS.OPCMonitor
 
         public void ExportIntegrationJson(string treeJsonPath, string outputPath, ICollection<string> allowedChildTypes = null)
         {
-            Console.WriteLine("[OPC_Exporter] Building OPC integration JSON...");
+            Console.WriteLine("[OPC_Exporter]\t\tBuilding OPC integration JSON...");
 
             var rootNode  = LoadTreeFromJsonFile(treeJsonPath);
             var structure = BuildIntegrationStructureFromTree(rootNode, allowedChildTypes);
@@ -591,7 +591,7 @@ namespace ISS.OPCMonitor
             };
 
             File.WriteAllText(outputPath, FormatIntegrationJson(root), new UTF8Encoding(false));
-            Console.WriteLine("[OPC_Exporter] Integration JSON exported to: " + outputPath);
+            Console.WriteLine("[OPC_Exporter]\t\tIntegration JSON exported to: " + outputPath);
         }
 
         private static Dictionary<string, object> LoadTreeFromJsonFile(string treeJsonPath)
@@ -770,7 +770,7 @@ namespace ISS.OPCMonitor
 
         public void ExportDdiFile(string treeJsonPath, string outputPath, ICollection<string> allowedChildTypes = null)
         {
-            Console.WriteLine("[OPC_Exporter] Building DDI file...");
+            Console.WriteLine("[OPC_Exporter]\t\tBuilding DDI file...");
 
             var rootNode  = LoadTreeFromJsonFile(treeJsonPath);
             var typeInfos = CollectTypeInfosFromTree(rootNode, allowedChildTypes);
@@ -803,7 +803,7 @@ namespace ISS.OPCMonitor
             WriteStateRuleSection(sb);
 
             File.WriteAllText(outputPath, sb.ToString(), new UTF8Encoding(false));
-            Console.WriteLine("[OPC_Exporter] DDI file exported to: " + outputPath);
+            Console.WriteLine("[OPC_Exporter]\t\tDDI file exported to: " + outputPath);
         }
 
         private static int ComputeC1Width(List<string> types,
@@ -1043,7 +1043,7 @@ namespace ISS.OPCMonitor
 
         public void ExportDbiFile(string treeJsonPath, string outputPath, ICollection<string> allowedChildTypes = null)
         {
-            Console.WriteLine("[OPC_Exporter] Building DBI file...");
+            Console.WriteLine("[OPC_Exporter]\t\tBuilding DBI file...");
 
             var rootNode  = LoadTreeFromJsonFile(treeJsonPath);
             var structure = BuildIntegrationStructureFromTree(rootNode, allowedChildTypes);
@@ -1066,7 +1066,7 @@ namespace ISS.OPCMonitor
             }
 
             File.WriteAllText(outputPath, sb.ToString(), new UTF8Encoding(false));
-            Console.WriteLine("[OPC_Exporter] DBI file exported to: " + outputPath);
+            Console.WriteLine("[OPC_Exporter]\t\tDBI file exported to: " + outputPath);
         }
 
         private static void CollectUniqueTypes(List<object> items, List<string> types)
@@ -1096,7 +1096,7 @@ namespace ISS.OPCMonitor
             var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "opc_states.json");
             if (!File.Exists(path))
             {
-                Console.WriteLine("[OPC_Exporter] opc_states.json no encontrado en Config\\");
+                Console.WriteLine("[OPC_Exporter]\t\topc_states.json no encontrado en Config\\");
                 return new List<OpcStateEntry>();
             }
             var raw = new JavaScriptSerializer().Deserialize<List<Dictionary<string, object>>>(
@@ -1261,7 +1261,7 @@ namespace ISS.OPCMonitor
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[OPC_Exporter] GetProperties error for '{itemName}': " + ex.Message);
+                Console.WriteLine($"[OPC_Exporter]\t\tGetProperties error for '{itemName}': " + ex.Message);
                 return new List<object>();
             }
         }

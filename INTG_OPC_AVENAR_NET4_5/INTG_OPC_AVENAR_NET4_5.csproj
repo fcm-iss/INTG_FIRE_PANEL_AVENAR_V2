@@ -68,8 +68,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Models\SecurOsMessage.cs" />
     <Compile Include="OpcDaClient.cs" />
-    <Compile Include="SecurOsEventSender.cs" />
+    <Compile Include="SecurOsConnector.cs" />
     <Compile Include="OpcIntegrationExporter.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

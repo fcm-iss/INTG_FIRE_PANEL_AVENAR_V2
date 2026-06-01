@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(dotnet build *)",
-      "PowerShell(& \"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" \"C:\\\\ISS_WORKSPACE\\\\_LABS\\\\_OPC\\\\INTG_OPC_AVENAR_NET4_8\\\\INTG_OPC_AVENAR_NET4_5\\\\INTG_OPC_AVENAR_NET4_5.csproj\" /p:Configuration=Debug /nologo /verbosity:minimal 2>&1)"
+      "PowerShell(& \"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" \"C:\\\\ISS_WORKSPACE\\\\_LABS\\\\_OPC\\\\INTG_OPC_AVENAR_NET4_8\\\\INTG_OPC_AVENAR_NET4_5\\\\INTG_OPC_AVENAR_NET4_5.csproj\" /p:Configuration=Debug /nologo /verbosity:minimal 2>&1)",
+      "PowerShell(& \"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" \"C:\\\\ISS_WORKSPACE\\\\_LABS\\\\_OPC\\\\INTG_OPC_AVENAR_NET4_8\\\\INTG_OPC_AVENAR_NET4_5\\\\INTG_OPC_AVENAR_NET4_5.csproj\" /p:Configuration=Debug /t:Build /v:minimal 2>&1)"
     ]
   }
 }

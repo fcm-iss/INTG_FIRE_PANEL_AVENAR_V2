@@ -49,7 +49,7 @@ namespace INTG_OPC
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[OPC_Client] Error al enumerar servidores en '{host}': {ex.Message}");
+                Console.WriteLine($"[OPC_Client]\tError al enumerar servidores en '{host}': {ex.Message}");
             }
             return urls;
         }
@@ -85,7 +85,7 @@ namespace INTG_OPC
         public bool Connect(string opcServerUrl)
         {
             ValidateServerUrl(opcServerUrl);
-            Console.WriteLine($"[OPC_Client] Conectando a: {opcServerUrl}");
+            Console.WriteLine($"[OPC_Client]\tConectando a: {opcServerUrl}");
 
             try
             {
@@ -93,22 +93,22 @@ namespace INTG_OPC
 
                 if (!_opcDaServer.IsConnected)
                 {
-                    Console.WriteLine("[OPC_Client] Error: el servidor no reporta conexión activa.");
+                    Console.WriteLine("[OPC_Client]\tError: el servidor no reporta conexión activa.");
                     return false;
                 }
 
                 _serverUrl = opcServerUrl;
-                Console.WriteLine("[OPC_Client] Conexión establecida correctamente.");
+                Console.WriteLine("[OPC_Client]\tConexión establecida correctamente.");
                 return true;
             }
             catch (ConnectFailedException ex)
             {
-                Console.WriteLine($"[OPC_Client] Falló la conexión: {ex.Message}");
+                Console.WriteLine($"[OPC_Client]\tFalló la conexión: {ex.Message}");
                 return false;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[OPC_Client] Error inesperado al conectar: {ex.Message}");
+                Console.WriteLine($"[OPC_Client]\tError inesperado al conectar: {ex.Message}");
                 return false;
             }
         }
@@ -145,11 +145,11 @@ namespace INTG_OPC
             try
             {
                 _opcDaServer.Disconnect();
-                Console.WriteLine("[OPC_Client] Desconectado correctamente.");
+                Console.WriteLine("[OPC_Client]\tDesconectado correctamente.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[OPC_Client] Error al desconectar: {ex.Message}");
+                Console.WriteLine($"[OPC_Client]\tError al desconectar: {ex.Message}");
             }
             finally
             {
@@ -169,7 +169,7 @@ namespace INTG_OPC
         public bool StartIntegrationMonitoring(Dictionary<string, string> nodeIdMapByItemName = null, int updateRateMs = 1000)
         {
             ThrowIfNotConnected();
-            Console.WriteLine("[OPC_Client] Inicializando grupo de suscripción...");
+            Console.WriteLine("[OPC_Client]\tInicializando grupo de suscripción...");
 
             try
             {
@@ -183,13 +183,13 @@ namespace INTG_OPC
             }
             catch (ResultIDException ex)
             {
-                Console.WriteLine($"[OPC_Client] Error al crear suscripción: {ex.Message} " +
+                Console.WriteLine($"[OPC_Client]\tError al crear suscripción: {ex.Message} " +
                                   $"| ResultID: {ex.Result}");
                 return false;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[OPC_Client] Error inesperado en suscripción: {ex.Message}");
+                Console.WriteLine($"[OPC_Client]\tError inesperado en suscripción: {ex.Message}");
                 return false;
             }
         }
@@ -206,12 +206,12 @@ namespace INTG_OPC
 
             if (items.Length == 0)
             {
-                Console.WriteLine("[OPC_Client] Advertencia: no se encontraron ítems en el servidor.");
+                Console.WriteLine("[OPC_Client]\tAdvertencia: no se encontraron ítems en el servidor.");
                 return false;
             }
 
             _subscription.AddItems(items);
-            Console.WriteLine($"[OPC_Client] Grupo '{groupName}' inicializado con {items.Length} ítem(s).");
+            Console.WriteLine($"[OPC_Client]\tGrupo '{groupName}' inicializado con {items.Length} ítem(s).");
             return true;
         }
 
@@ -220,7 +220,7 @@ namespace INTG_OPC
             _subscription.DataChanged += (s, r, values) =>
             {
                 try   { if (values != null) PanelChanged?.Invoke(values); }
-                catch (Exception ex) { Console.WriteLine($"[OPC_Client] Error en DataChanged: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"[OPC_Client]\tError en DataChanged: {ex.Message}"); }
             };
         }
 
@@ -235,12 +235,12 @@ namespace INTG_OPC
 
         private Item[] DiscoverItems(Dictionary<string, string> itemIdMap = null)
         {
-            Console.WriteLine("[OPC_Client] Descubriendo ítems...");
+            Console.WriteLine("[OPC_Client]\tDescubriendo ítems...");
 
             var rawItems = BrowseAllItems(itemIdMap);
             var unique   = DeduplicateByItemName(rawItems);
 
-            Console.WriteLine($"[OPC_Client] Ítems descubiertos: {unique.Length}");
+            Console.WriteLine($"[OPC_Client]\tÍtems descubiertos: {unique.Length}");
             return unique;
         }
 
@@ -314,11 +314,11 @@ namespace INTG_OPC
             {
                 CancelServerSubscription();
                 _subscription.Dispose();
-                Console.WriteLine("[OPC_Client] Grupo de suscripción liberado.");
+                Console.WriteLine("[OPC_Client]\tGrupo de suscripción liberado.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[OPC_Client] Error al liberar grupo: {ex.Message}");
+                Console.WriteLine($"[OPC_Client]\tError al liberar grupo: {ex.Message}");
             }
             finally
             {
@@ -344,7 +344,7 @@ namespace INTG_OPC
             ThrowIfNotConnected();
             ThrowIfSubscriptionNotInitialized();
 
-            Console.WriteLine("[OPC_Client] Iniciando lectura asíncrona...");
+            Console.WriteLine("[OPC_Client]\tIniciando lectura asíncrona...");
             _subscription.Read(
                 _subscription.Items,
                 100,
@@ -354,7 +354,7 @@ namespace INTG_OPC
 
         private void OnReadComplete(object clientHandle, ItemValueResult[] results)
         {
-            Console.WriteLine("[OPC_Client] Lectura completada:");
+            Console.WriteLine("[OPC_Client]\tLectura completada:");
             foreach (var result in results)
                 Console.WriteLine($"  {result.ItemName} = {result.Value}");
             Console.WriteLine();
@@ -371,7 +371,7 @@ namespace INTG_OPC
             var subscriptionItem = FindSubscribedItem(itemName);
             if (subscriptionItem == null)
             {
-                Console.WriteLine($"[OPC_Client] Write: ítem '{itemName}' no encontrado en la suscripción.");
+                Console.WriteLine($"[OPC_Client]\tWrite: ítem '{itemName}' no encontrado en la suscripción.");
                 return false;
             }
 
@@ -404,13 +404,13 @@ namespace INTG_OPC
             {
                 var itemValue = BuildItemValue(subscriptionItem, value);
                 var result    = _subscription.Write(new[] { itemValue });
-                Console.WriteLine($"[OPC_Client] Write OK: {itemName} = {value}");
-                Console.WriteLine($"[OPC_Client] result: {result}");
+                Console.WriteLine($"[OPC_Client]\tWrite OK: {itemName} = {value}");
+                Console.WriteLine($"[OPC_Client]\tresult: {result}");
                 return true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[OPC_Client] Error al escribir '{itemName}': {ex.Message}");
+                Console.WriteLine($"[OPC_Client]\tError al escribir '{itemName}': {ex.Message}");
                 return false;
             }
         }
@@ -463,7 +463,7 @@ namespace INTG_OPC
                     foreach (var r in results)
                     {
                         var status = r.ResultID.Succeeded() ? "OK  " : "FAIL";
-                        Console.WriteLine($"[OPC_Client] Write {status}: {r.ItemName} — {r.ResultID}");
+                        Console.WriteLine($"[OPC_Client]\tWrite {status}: {r.ItemName} — {r.ResultID}");
                     }
                 }
 
@@ -471,7 +471,7 @@ namespace INTG_OPC
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[OPC_Client] Error al escribir ítems: {ex.Message}");
+                Console.WriteLine($"[OPC_Client]\tError al escribir ítems: {ex.Message}");
                 return null;
             }
         }

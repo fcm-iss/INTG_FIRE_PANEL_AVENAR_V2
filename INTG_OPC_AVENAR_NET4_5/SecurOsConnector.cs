@@ -1,3 +1,4 @@
+using INTG_OPC_AVENAR_NET4_5.Models;
 using SecurosIIDK;
 using Opc.Da;
 using System;
@@ -10,7 +11,7 @@ using System.Web.Script.Serialization;
 
 namespace INTG_OPC_AVENAR_NET4_5
 {
-    class SecurOsEventSender : IDisposable
+    class SecurOsConnector : IDisposable
     {
         #region Campos y Constructor
 
@@ -19,7 +20,7 @@ namespace INTG_OPC_AVENAR_NET4_5
 
         public event Action<SecurOsMessage> MessageReceived;
 
-        private SecurOsEventSender(IidkManager iidkManager)
+        private SecurOsConnector(IidkManager iidkManager)
         {
             _Securos = iidkManager;
             _Securos.OnSecurOSMessage += OnMessageReceived;
@@ -32,7 +33,7 @@ namespace INTG_OPC_AVENAR_NET4_5
             _disposed = true;
         }
 
-        public static SecurOsEventSender Connect()
+        public static SecurOsConnector Connect()
         {
             var host = ConfigurationManager.AppSettings["securos_host"] ?? "127.0.0.1";
             var port = ConfigurationManager.AppSettings["securos_port"] ?? "3000";
@@ -40,7 +41,7 @@ namespace INTG_OPC_AVENAR_NET4_5
 
             var iidkManager = new IidkManager();
             WaitForConnection(iidkManager, host, port, id);
-            return new SecurOsEventSender(iidkManager);
+            return new SecurOsConnector(iidkManager);
         }
 
         private static void WaitForConnection(IidkManager manager, string host, string port, string id)
@@ -58,8 +59,8 @@ namespace INTG_OPC_AVENAR_NET4_5
             connected.Dispose();
 
             Console.WriteLine(ok
-                ? $"[SecurOS] Conectado → {host}:{port} id={id}"
-                : $"[SecurOS] Timeout esperando conexión a {host}:{port}");
+                ? $"[SecurOS]\tConectado -> {host}:{port} id={id}"
+                : $"[SecurOS]\tTimeout esperando conexión a {host}:{port}");
         }
 
         #endregion
@@ -73,12 +74,12 @@ namespace INTG_OPC_AVENAR_NET4_5
                 if (!iidk.IsValid) return;
 
                 var msg = BuildSecurOsMessage(iidk);
-                Console.WriteLine($"[SecurOS] → Type:{msg.ObjType} Id:{msg.Id} Action:{msg.EventName} Params:{msg.Params}");
+                Console.WriteLine($"[SecurOS]\tRecibido <- Type:{msg.ObjType} Id:{msg.Id} Action:{msg.EventName} Params:{msg.Params}");
                 MessageReceived?.Invoke(msg);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[SecurOS] Error al procesar mensaje: {ex.Message}");
+                Console.WriteLine($"[SecurOS]\tError al procesar mensaje: {ex.Message}");
             }
         }
 
@@ -140,13 +141,13 @@ namespace INTG_OPC_AVENAR_NET4_5
         {
             if (!_Securos.IsConnected())
             {
-                Console.WriteLine("[SecurOS] Sin conexión — mensaje descartado.");
+                Console.WriteLine("[SecurOS]\tSin conexión — mensaje descartado.");
                 return;
             }
 
             var msg = $"{objType}|{securosId}|{state}";
             _Securos.SendMessage(msg);
-            Console.WriteLine($"[SecurOS] ← {msg}");
+            Console.WriteLine($"[SecurOS]\tEnviado ->: {msg}");
         }
 
         #endregion
@@ -160,7 +161,7 @@ namespace INTG_OPC_AVENAR_NET4_5
             var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "opc_states.json");
             if (!File.Exists(path))
             {
-                Console.WriteLine("[SecurOS] opc_states.json no encontrado en Config\\");
+                Console.WriteLine("[SecurOS]\topc_states.json no encontrado en Config\\");
                 return new Dictionary<int, string>();
             }
 
@@ -195,11 +196,4 @@ namespace INTG_OPC_AVENAR_NET4_5
         #endregion
     }
 
-    class SecurOsMessage
-    {
-        public string ObjType   { get; set; }
-        public string Id        { get; set; }
-        public string EventName { get; set; }
-        public string Params    { get; set; }
-    }
 }
