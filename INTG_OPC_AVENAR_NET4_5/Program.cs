@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
+using System.ServiceProcess;
 using System.Threading.Tasks;
 
 namespace INTG_OPC_AVENAR_NET4_5
@@ -41,6 +42,8 @@ namespace INTG_OPC_AVENAR_NET4_5
                     Console.WriteLine("[APP]\t\tNo hay archivo de árbol disponible. Monitoreo no disponible.");
                     return;
                 }
+
+                ConfirmAndDeployIntegrationFiles();
 
                 if (!ConfirmStartMonitoring()) return;
 
@@ -165,6 +168,171 @@ namespace INTG_OPC_AVENAR_NET4_5
 
             Console.WriteLine("[APP]\t\tUsando archivo existente: Config\\tree\\treeExporter.json");
             return path;
+        }
+
+        private static void ConfirmAndDeployIntegrationFiles()
+        {
+            Console.WriteLine("\n==================================================");
+            Console.Write("[APP]\t\t¿Desea copiar los archivos de integración a SecurOS? (s/n): ");
+            var answer = Console.ReadLine()?.Trim() ?? "";
+            if (!answer.Equals("s", StringComparison.OrdinalIgnoreCase) &&
+                !answer.Equals("si", StringComparison.OrdinalIgnoreCase)) return;
+
+            var baseDir     = ResolveOutputBaseDir();
+            var prefixClean = (ConfigurationManager.AppSettings["ddi_prefix"] ?? "").TrimEnd('_').ToLower();
+            var intDir      = Path.Combine(baseDir, "Config", "integration");
+
+            var securosDir     = ConfigurationManager.AppSettings["securos_install_dir"]     ?? "";
+            var integrationDir = ConfigurationManager.AppSettings["securos_integration_dir"] ?? "";
+
+            var ddiOk  = CopyFileToDirectory(Path.Combine(intDir, $"securos.{prefixClean}.ddi"),      securosDir);
+            var dbiOk  = CopyFileToDirectory(Path.Combine(intDir, $"securos.{prefixClean}.dbi"),      securosDir);
+            var jsonOk = CopyFileToDirectory(Path.Combine(intDir, $"{prefixClean}.integration.json"), integrationDir);
+
+            if (!ddiOk || !dbiOk || !jsonOk)
+            {
+                Console.WriteLine("[APP]\t\tAlgunos archivos no se copiaron correctamente — ciclo de servicio cancelado.");
+                return;
+            }
+
+            Console.WriteLine("\n==================================================");
+            Console.Write("[APP]\t\t¿Desea detener el servicio, marcar el DBI y reiniciarlo? (s/n): ");
+            var serviceAnswer = Console.ReadLine()?.Trim() ?? "";
+            if (!serviceAnswer.Equals("s", StringComparison.OrdinalIgnoreCase) &&
+                !serviceAnswer.Equals("si", StringComparison.OrdinalIgnoreCase)) return;
+
+            var dbiDestPath = Path.Combine(securosDir, $"securos.{prefixClean}.dbi");
+            var serviceName = ConfigurationManager.AppSettings["securos_service_name"] ?? "";
+            StopMarkAndRestartService(serviceName, dbiDestPath);
+        }
+
+        private static void StopMarkAndRestartService(string displayName, string dbiPath)
+        {
+            if (string.IsNullOrWhiteSpace(displayName))
+            {
+                Console.WriteLine("[APP]\t\tsecuros_service_name no configurado — servicio omitido.");
+                return;
+            }
+
+            using (var svc = FindServiceByDisplayName(displayName))
+            {
+                if (svc == null)
+                {
+                    Console.WriteLine($"[APP]\t\tServicio no encontrado: {displayName}");
+                    return;
+                }
+
+                if (!StopService(svc))
+                {
+                    Console.WriteLine("[APP]\t\tNo se pudo detener el servicio — operación cancelada.");
+                    return;
+                }
+
+                MarkFileAsArchive(dbiPath);
+                StartService(svc);
+            }
+        }
+
+        private static ServiceController FindServiceByDisplayName(string serviceName)
+        {
+            try   { return new ServiceController(serviceName); }
+            catch { return null; }
+        }
+
+        private static bool StopService(ServiceController svc)
+        {
+            svc.Refresh();
+            if (svc.Status == ServiceControllerStatus.Stopped)
+            {
+                Console.WriteLine("[APP]\t\tEl servicio ya estaba detenido.");
+                return true;
+            }
+
+            try
+            {
+                Console.WriteLine($"[APP]\t\tDeteniendo servicio: {svc.DisplayName}...");
+                svc.Stop();
+                svc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+                svc.Refresh();
+
+                if (svc.Status != ServiceControllerStatus.Stopped)
+                {
+                    Console.WriteLine($"[APP]\t\tEl servicio no se detuvo — estado actual: {svc.Status}");
+                    return false;
+                }
+
+                Console.WriteLine("[APP]\t\tServicio detenido correctamente.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[APP]\t\tError al detener el servicio: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void MarkFileAsArchive(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                Console.WriteLine($"[APP]\t\tArchivo no encontrado para marcar: {Path.GetFileName(filePath)}");
+                return;
+            }
+
+            File.SetAttributes(filePath, File.GetAttributes(filePath) | FileAttributes.Archive);
+            Console.WriteLine($"[APP]\t\tMarcado como listo para archivar: {Path.GetFileName(filePath)}");
+        }
+
+        private static void StartService(ServiceController svc)
+        {
+            if (svc.Status == ServiceControllerStatus.Running) return;
+
+            Console.WriteLine($"[APP]\t\tArrancando servicio: {svc.DisplayName}...");
+            svc.Start();
+            svc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
+            Console.WriteLine("[APP]\t\tServicio en ejecución.");
+        }
+
+        private static bool CopyFileToDirectory(string sourcePath, string destDir)
+        {
+            var fileName = Path.GetFileName(sourcePath);
+
+            if (string.IsNullOrWhiteSpace(destDir))
+            {
+                Console.WriteLine($"[APP]\t\tRuta de destino no configurada para: {fileName}");
+                return false;
+            }
+            if (!File.Exists(sourcePath))
+            {
+                Console.WriteLine($"[APP]\t\tArchivo origen no encontrado: {fileName}");
+                return false;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(destDir);
+                var destPath = Path.Combine(destDir, fileName);
+                File.Copy(sourcePath, destPath, overwrite: true);
+
+                if (!File.Exists(destPath))
+                {
+                    Console.WriteLine($"[APP]\t\tERROR: {fileName} no se encontró en destino tras la copia — verifica permisos de Administrador.");
+                    return false;
+                }
+
+                Console.WriteLine($"[APP]\t\tCopiado OK: {fileName} → {destDir}");
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                Console.WriteLine($"[APP]\t\tACCESO DENEGADO al copiar {fileName} — ejecuta la aplicación como Administrador.");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[APP]\t\tError al copiar {fileName}: {ex.Message}");
+                return false;
+            }
         }
 
         private static bool ConfirmStartMonitoring()
