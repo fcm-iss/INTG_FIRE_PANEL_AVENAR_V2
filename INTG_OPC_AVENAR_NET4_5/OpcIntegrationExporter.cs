@@ -568,6 +568,75 @@ namespace ISS.OPCMonitor
             return node.TryGetValue(fieldName, out value) ? value?.ToString() ?? "" : "";
         }
 
+        // ══════════════════════════════════════════════════════════════════
+        // BuildCommandNodeMapFromTreeJson  →  Dictionary<clientHandle, (itemName, commands)>
+        // Lee el árbol exportado y construye un mapa clientHandle → itemName + comandos disponibles.
+        // Permite al orquestador validar y despachar comandos de SecurOS hacia OPC
+        // sin que ninguna de las dos capas conozca a la otra.
+        // ══════════════════════════════════════════════════════════════════
+
+        public static Dictionary<string, Tuple<string, Dictionary<string, string>>> BuildCommandNodeMapFromTreeJson(string jsonFilePath)
+        {
+            var json     = ReadJsonFileContent(jsonFilePath);
+            var rootNode = DeserializeJsonRootNode(json);
+            var map      = new Dictionary<string, Tuple<string, Dictionary<string, string>>>(StringComparer.OrdinalIgnoreCase);
+
+            CollectCommandNodes(rootNode, map);
+            Console.WriteLine($"[OPC_Exporter]\t\tMapa handle→comandos: {map.Count} ítems con comandos.");
+            return map;
+        }
+
+        private static void CollectCommandNodes(Dictionary<string, object> node,
+            Dictionary<string, Tuple<string, Dictionary<string, string>>> map)
+        {
+            if (node == null) return;
+
+            RegisterCommandNodeIfValid(node, map);
+            DescendIntoChildren(node, map);
+        }
+
+        private static void RegisterCommandNodeIfValid(Dictionary<string, object> node,
+            Dictionary<string, Tuple<string, Dictionary<string, string>>> map)
+        {
+            var itemName  = ReadStringField(node, "itemName");
+            var securosId = ReadStringField(node, "securosId");
+            var objType   = ReadStringField(node, "objType");
+            var commands  = ExtractCommands(node);
+
+            if (string.IsNullOrEmpty(itemName) || string.IsNullOrEmpty(securosId) || commands.Count == 0)
+                return;
+
+            var handle = string.IsNullOrEmpty(objType) ? securosId : $"{objType}|{securosId}";
+            map[handle] = Tuple.Create(itemName, commands);
+        }
+
+        private static Dictionary<string, string> ExtractCommands(Dictionary<string, object> node)
+        {
+            object commandsObj;
+            if (!node.TryGetValue("commands", out commandsObj)) return new Dictionary<string, string>();
+
+            var raw = commandsObj as Dictionary<string, object>;
+            if (raw == null) return new Dictionary<string, string>();
+
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in raw)
+                result[kv.Key] = kv.Value?.ToString() ?? "";
+            return result;
+        }
+
+        private static void DescendIntoChildren(Dictionary<string, object> node,
+            Dictionary<string, Tuple<string, Dictionary<string, string>>> map)
+        {
+            object childrenObj;
+            if (!node.TryGetValue("children", out childrenObj)) return;
+
+            var children = childrenObj as System.Collections.ArrayList;
+            if (children == null) return;
+
+            foreach (var child in children)
+                CollectCommandNodes(child as Dictionary<string, object>, map);
+        }
+
         #endregion
 
         #region Archivos de Integración

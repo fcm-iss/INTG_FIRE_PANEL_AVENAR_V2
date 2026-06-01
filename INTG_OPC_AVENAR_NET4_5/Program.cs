@@ -3,9 +3,11 @@ using INTG_OPC_AVENAR_NET4_5.Models;
 using ISS.OPCMonitor;
 using Opc.Da;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace INTG_OPC_AVENAR_NET4_5
 {
@@ -130,6 +132,7 @@ namespace INTG_OPC_AVENAR_NET4_5
         private static void StartMonitoring(OpcClient opcClient, string exporterPath, SecurOsConnector securOs, int updateRateMs)
         {
             var nodeIdMapByItemName = OpcIntegrationExporter.BuildNodeIdMapFromTreeJson(exporterPath);
+            var commandNodeMap      = OpcIntegrationExporter.BuildCommandNodeMapFromTreeJson(exporterPath);
 
             if (!opcClient.StartIntegrationMonitoring(nodeIdMapByItemName, updateRateMs))
             {
@@ -137,13 +140,19 @@ namespace INTG_OPC_AVENAR_NET4_5
                 return;
             }
 
+            var writeQueue = new BlockingCollection<string>();
+
             opcClient.PanelChanged  += values => OnPanelChanged(values, securOs);
-            securOs.MessageReceived += msg    => OnSecurOsMessage(msg);
+            securOs.MessageReceived += msg    => OnSecurOsMessage(msg, commandNodeMap, xml => writeQueue.TryAdd(xml));
 
             Console.WriteLine("\n==================================================");
             Console.WriteLine("[APP]\t\tPresiona cualquier tecla para desconectar...");
             Console.WriteLine("==================================================\n");
-            Console.ReadKey();
+
+            Task.Run(() => { Console.ReadKey(true); writeQueue.CompleteAdding(); });
+
+            foreach (var xml in writeQueue.GetConsumingEnumerable())
+                opcClient.WriteCommand(xml);
         }
 
         private static void OnPanelChanged(ItemValueResult[] itemsValue, SecurOsConnector securOs)
@@ -163,9 +172,47 @@ namespace INTG_OPC_AVENAR_NET4_5
             securOs.Send(item);
         }
 
-        private static void OnSecurOsMessage(SecurOsMessage msg)
+        private static void OnSecurOsMessage(
+            SecurOsMessage msg,
+            Dictionary<string, Tuple<string, Dictionary<string, string>>> commandNodeMap,
+            Action<string> enqueueWrite)
         {
             Console.WriteLine($"[SecurOS]\tComando recibido — ObjType: {msg.ObjType} | Id: {msg.Id} | Evento: {msg.EventName} | Params: {msg.Params}");
+            RouteSecurOsCommandToOpc(msg, commandNodeMap, enqueueWrite);
+        }
+
+        private static void RouteSecurOsCommandToOpc(SecurOsMessage msg,
+            Dictionary<string, Tuple<string, Dictionary<string, string>>> commandNodeMap,
+            Action<string> enqueueWrite)
+        {
+            var handle = $"{msg.ObjType}|{msg.Id}";
+            Tuple<string, Dictionary<string, string>> nodeInfo;
+            if (!commandNodeMap.TryGetValue(handle, out nodeInfo))
+            {
+                Console.WriteLine($"[APP]\t\tNo se encontró elemento OPC para handle: {handle}");
+                return;
+            }
+
+            string commandXml;
+            if (!nodeInfo.Item2.TryGetValue(msg.EventName, out commandXml))
+            {
+                Console.WriteLine($"[APP]\t\tComando '{msg.EventName}' no definido para ítem: {nodeInfo.Item1}");
+                return;
+            }
+
+            enqueueWrite(EnrichCommandXml(commandXml, nodeInfo.Item1));
+        }
+
+        private static string EnrichCommandXml(string commandXml, string itemName)
+        {
+            commandXml = commandXml.Replace("\\\"", "\"");
+
+            var idx = commandXml.LastIndexOf("/>");
+            if (idx < 0) return commandXml;
+
+            return commandXml.Substring(0, idx)
+                + $" Sender=\"BIS\" Adresse=\"{itemName}\""
+                + commandXml.Substring(idx);
         }
 
         // ══════════════════════════════════════════════════════════════════

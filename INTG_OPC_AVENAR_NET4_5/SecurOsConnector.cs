@@ -20,17 +20,31 @@ namespace INTG_OPC_AVENAR_NET4_5
 
         public event Action<SecurOsMessage> MessageReceived;
 
-        private SecurOsConnector(IidkManager iidkManager)
+        private SecurOsConnector(IidkManager securosIidkManager)
         {
-            _Securos = iidkManager;
+            _Securos = securosIidkManager;
             _Securos.OnSecurOSMessage += OnMessageReceived;
         }
 
         public void Dispose()
         {
             if (_disposed) return;
+            DisconnectSecurOs();
             (_Securos as IDisposable)?.Dispose();
             _disposed = true;
+        }
+
+        private void DisconnectSecurOs()
+        {
+            try
+            {
+                if (_Securos.IsConnected())
+                    _Securos.Disconnect();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SecurOS]\tError al desconectar: {ex.Message}");
+            }
         }
 
         public static SecurOsConnector Connect()
@@ -67,13 +81,13 @@ namespace INTG_OPC_AVENAR_NET4_5
 
         #region Recepción de Mensajes
 
-        private void OnMessageReceived(SecurosIIDK.Message iidk)
+        private void OnMessageReceived(SecurosIIDK.Message message)
         {
             try
             {
-                if (!iidk.IsValid) return;
+                if (!message.IsValid) return;
 
-                var msg = BuildSecurOsMessage(iidk);
+                var msg = BuildSecurOsMessage(message);
                 Console.WriteLine($"[SecurOS]\tRecibido <- Type:{msg.ObjType} Id:{msg.Id} Action:{msg.EventName} Params:{msg.Params}");
                 MessageReceived?.Invoke(msg);
             }

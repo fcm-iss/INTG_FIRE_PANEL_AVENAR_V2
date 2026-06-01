@@ -405,7 +405,7 @@ namespace INTG_OPC
                 var itemValue = BuildItemValue(subscriptionItem, value);
                 var result    = _subscription.Write(new[] { itemValue });
                 Console.WriteLine($"[OPC_Client]\tWrite OK: {itemName} = {value}");
-                Console.WriteLine($"[OPC_Client]\tresult: {result}");
+                Console.WriteLine($"[OPC_Client]\tresult: {result[0].ResultID}");
                 return true;
             }
             catch (Exception ex)
@@ -440,6 +440,42 @@ namespace INTG_OPC
             if (_disposed) return;
             Disconnect();
             _disposed = true;
+        }
+
+        public bool WriteCommand(string commandXml)
+        {
+            ThrowIfNotConnected();
+            ThrowIfSubscriptionNotInitialized();
+
+            var cmdItem = FindSubscribedItem("CMD");
+            if (cmdItem == null)
+            {
+                Console.WriteLine("[OPC_Client]\tWriteCommand: ítem 'CMD' no encontrado en la suscripción.");
+                return false;
+            }
+
+            return ExecuteCommandWrite(cmdItem, commandXml);
+        }
+
+        private bool ExecuteCommandWrite(Item cmdItem, string commandXml)
+        {
+            try
+            {
+                var itemValue = new ItemValue
+                {
+                    ServerHandle = cmdItem.ServerHandle,
+                    ItemName     = cmdItem.ItemName,
+                    Value        = commandXml
+                };
+                _subscription.Write(new[] { itemValue });
+                Console.WriteLine($"[OPC_Client]\tWriteCommand OK: {cmdItem.ItemName}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC_Client]\tError al enviar comando: {ex.Message}");
+                return false;
+            }
         }
 
         #endregion
