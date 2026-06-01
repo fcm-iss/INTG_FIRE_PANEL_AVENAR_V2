@@ -21,7 +21,6 @@ namespace INTG_OPC_AVENAR_NET4_5
 
         private static void RunApp()
         {
-            using (var securOs = SecurOsConnector.Connect())
             using (var opcClient = new OpcClient())
             {
                 var selectedUrl = DiscoverAndSelectOpcServer(opcClient);
@@ -35,15 +34,17 @@ namespace INTG_OPC_AVENAR_NET4_5
 
                 var exporterPath = ConfirmCreateIntegrationFiles()
                     ? ExportOpcFiles(opcClient, selectedUrl)
-                    : FindLatestTreeExporterFile();
-                    
+                    : FindExistingTreeExporterFile();
+
                 if (string.IsNullOrEmpty(exporterPath))
                 {
                     Console.WriteLine("[APP]\t\tNo hay archivo de árbol disponible. Monitoreo no disponible.");
                     return;
                 }
 
-                if (ConfirmStartMonitoring())
+                if (!ConfirmStartMonitoring()) return;
+
+                using (var securOs = SecurOsConnector.Connect())
                     StartMonitoring(opcClient, exporterPath, securOs, ResolveUpdateRateMs());
             }
         }
@@ -51,6 +52,16 @@ namespace INTG_OPC_AVENAR_NET4_5
         // ══════════════════════════════════════════════════════════════════
         // Exportación OPC
         // ══════════════════════════════════════════════════════════════════
+
+        private static string ResolveOutputBaseDir()
+        {
+            var configured = ConfigurationManager.AppSettings["output_base_dir"];
+            if (string.IsNullOrWhiteSpace(configured))
+                return AppDomain.CurrentDomain.BaseDirectory;
+
+            return Path.GetFullPath(
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, configured));
+        }
 
         private static int ResolveUpdateRateMs()
         {
@@ -70,16 +81,27 @@ namespace INTG_OPC_AVENAR_NET4_5
         {
             var ddiPrefix    = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
             var exporter     = new OpcIntegrationExporter(opcClient.Server, ddiPrefix, selectedUrl);
-            var timestamp    = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var baseDir      = AppDomain.CurrentDomain.BaseDirectory;
+            var baseDir      = ResolveOutputBaseDir();
             var allowedTypes = ResolveAllowedTypes();
             var prefixClean  = ddiPrefix.TrimEnd('_').ToLower();
 
-            var exporterPath    = Path.Combine(baseDir, $"treeExporter_{timestamp}.json");
-            var commandPath     = Path.Combine(baseDir, $"commands_{timestamp}.json");
-            var integrationPath = Path.Combine(baseDir, $"{timestamp}_{prefixClean}.integration.json");
-            var ddiPath         = Path.Combine(baseDir, $"{timestamp}_securos.{prefixClean}.ddi");
-            var dbiPath         = Path.Combine(baseDir, $"{timestamp}_securos.{prefixClean}.dbi");
+            var treeDir        = Path.Combine(baseDir, "Config", "tree");
+            var integrationDir = Path.Combine(baseDir, "Config", "integration");
+
+            var exporterPath    = Path.Combine(treeDir,        "treeExporter.json");
+            var commandPath     = Path.Combine(treeDir,        "commands.json");
+            var integrationPath = Path.Combine(integrationDir, $"{prefixClean}.integration.json");
+            var ddiPath         = Path.Combine(integrationDir, $"securos.{prefixClean}.ddi");
+            var dbiPath         = Path.Combine(integrationDir, $"securos.{prefixClean}.dbi");
+
+            if (!ConfirmOverwriteIfAnyExists(new[] { exporterPath, commandPath, integrationPath, ddiPath, dbiPath }))
+            {
+                Console.WriteLine("[APP]\t\tExportación cancelada. Usando archivos existentes.");
+                return File.Exists(exporterPath) ? exporterPath : null;
+            }
+
+            EnsureDirectoryExists(treeDir);
+            EnsureDirectoryExists(integrationDir);
 
             exporter.ExportOpcTreeWithPropertiesToJson(exporterPath);
             exporter.ExportCommandsToJson(commandPath);
@@ -88,6 +110,34 @@ namespace INTG_OPC_AVENAR_NET4_5
             exporter.ExportDbiFile(exporterPath, dbiPath, allowedTypes);
 
             return exporterPath;
+        }
+
+        private static bool ConfirmOverwriteIfAnyExists(string[] paths)
+        {
+            bool anyExists = false;
+            foreach (var p in paths)
+            {
+                if (!File.Exists(p)) continue;
+                if (!anyExists)
+                {
+                    Console.WriteLine("\n[APP]\t\tYa existen los siguientes archivos:");
+                    anyExists = true;
+                }
+                Console.WriteLine($"         - {Path.GetFileName(p)}");
+            }
+
+            if (!anyExists) return true;
+
+            Console.Write("[APP]\t\t¿Desea sobreescribirlos? (s/n): ");
+            var answer = Console.ReadLine()?.Trim() ?? "";
+            return answer.Equals("s", StringComparison.OrdinalIgnoreCase)
+                || answer.Equals("si", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void EnsureDirectoryExists(string path)
+        {
+            if (!Directory.Exists(path))
+                Directory.CreateDirectory(path);
         }
 
         // ══════════════════════════════════════════════════════════════════
@@ -103,21 +153,18 @@ namespace INTG_OPC_AVENAR_NET4_5
                 || answer.Equals("si", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string FindLatestTreeExporterFile()
+        private static string FindExistingTreeExporterFile()
         {
-            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            var files   = Directory.GetFiles(baseDir, "treeExporter_*.json");
+            var path = Path.Combine(ResolveOutputBaseDir(), "Config", "tree", "treeExporter.json");
 
-            if (files.Length == 0)
+            if (!File.Exists(path))
             {
-                Console.WriteLine("[APP]\t\tNo se encontró ningún archivo treeExporter previo.");
+                Console.WriteLine("[APP]\t\tNo se encontró treeExporter.json en Config\\tree\\");
                 return null;
             }
 
-            Array.Sort(files);
-            var latest = files[files.Length - 1];
-            Console.WriteLine($"[APP]\t\tUsando archivo existente: {Path.GetFileName(latest)}");
-            return latest;
+            Console.WriteLine("[APP]\t\tUsando archivo existente: Config\\tree\\treeExporter.json");
+            return path;
         }
 
         private static bool ConfirmStartMonitoring()
