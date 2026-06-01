@@ -866,7 +866,7 @@ namespace ISS.OPCMonitor
 
             WriteObjTypeSection(sb, typeInfos, c1, c2, c3);
             WriteEventSection(sb, cmdEvents, opcEventRows, c1, c2, c3, c4, c5);
-            WriteReactSection(sb, cmdEvents, opcEventRows, c1, c2, c3, c4, c5, c6);
+            WriteReactSection(sb, cmdEvents, c1, c2, c3, c4, c5, c6);
             WriteStateSection(sb, opcStateRows, c1, cs2, cs3, c4, c5, cs6);
             WriteMarkerSection(sb);
             WriteStateRuleSection(sb);
@@ -911,13 +911,10 @@ namespace ISS.OPCMonitor
 
         private static void WriteReactSection(StringBuilder sb,
             List<Tuple<string, string, string>> cmdEvents,
-            List<Tuple<string, string, string>> opcEventRows,
             int c1, int c2, int c3, int c4, int c5, int c6)
         {
             sb.AppendLine("[REACT]");
             foreach (var ev in cmdEvents)
-                sb.AppendLine(Col(ev.Item1, c1) + "|" + Col(ev.Item2, c2) + "|" + Col("", c3) + "|" + Col("", c4) + "|" + Col(ev.Item3, c5) + "|" + Col("", c6) + "|");
-            foreach (var ev in opcEventRows)
                 sb.AppendLine(Col(ev.Item1, c1) + "|" + Col(ev.Item2, c2) + "|" + Col("", c3) + "|" + Col("", c4) + "|" + Col(ev.Item3, c5) + "|" + Col("", c6) + "|");
             sb.AppendLine();
         }
