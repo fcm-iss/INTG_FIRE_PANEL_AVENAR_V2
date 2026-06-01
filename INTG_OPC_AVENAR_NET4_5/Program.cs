@@ -201,7 +201,7 @@ namespace INTG_OPC_AVENAR_NET4_5
             if (!serviceAnswer.Equals("s", StringComparison.OrdinalIgnoreCase) &&
                 !serviceAnswer.Equals("si", StringComparison.OrdinalIgnoreCase)) return;
 
-            var dbiDestPath = Path.Combine(securosDir, $"securos.{prefixClean}.dbi");
+            var dbiDestPath = Path.Combine(securosDir, "securos.dbi");
             var serviceName = ConfigurationManager.AppSettings["securos_service_name"] ?? "";
             StopMarkAndRestartService(serviceName, dbiDestPath);
         }
@@ -338,10 +338,42 @@ namespace INTG_OPC_AVENAR_NET4_5
         private static bool ConfirmStartMonitoring()
         {
             Console.WriteLine("\n==================================================");
+
+            if (!VerifyServiceRunningBeforeMonitor()) return false;
+
             Console.Write("[APP]\t\t¿Desea iniciar el monitoreo? (s/n): ");
             var answer = Console.ReadLine()?.Trim() ?? "";
             return answer.Equals("s", StringComparison.OrdinalIgnoreCase)
                 || answer.Equals("si", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool VerifyServiceRunningBeforeMonitor()
+        {
+            var serviceName = ConfigurationManager.AppSettings["securos_service_name"] ?? "";
+            if (string.IsNullOrWhiteSpace(serviceName)) return true;
+
+            using (var svc = FindServiceByDisplayName(serviceName))
+            {
+                if (svc == null)
+                {
+                    Console.WriteLine($"[APP]\t\tServicio '{serviceName}' no encontrado — se continúa sin verificar.");
+                    return true;
+                }
+
+                svc.Refresh();
+
+                if (svc.Status == ServiceControllerStatus.Running)
+                {
+                    Console.WriteLine($"[APP]\t\tServicio '{serviceName}': En ejecución.");
+                    return true;
+                }
+
+                Console.WriteLine($"[APP]\t\tAdvertencia: servicio '{serviceName}' no está en ejecución (estado: {svc.Status}).");
+                Console.Write("[APP]\t\t¿Desea continuar igualmente? (s/n): ");
+                var answer = Console.ReadLine()?.Trim() ?? "";
+                return answer.Equals("s", StringComparison.OrdinalIgnoreCase)
+                    || answer.Equals("si", StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         private static void StartMonitoring(OpcClient opcClient, string exporterPath, SecurOsConnector securOs, int updateRateMs)
