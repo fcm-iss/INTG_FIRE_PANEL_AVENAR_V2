@@ -70,10 +70,20 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Models\SecurOsMessage.cs" />
-    <Compile Include="OpcDaClient.cs" />
-    <Compile Include="SecurOsConnector.cs" />
-    <Compile Include="OpcIntegrationExporter.cs" />
+    <Compile Include="App.cs" />
+    <Compile Include="L2_Application\ExecuteSecurOsCommandUseCase.cs" />
+    <Compile Include="L2_Application\SyncItemStateUseCase.cs" />
+    <Compile Include="L1_Domain\IOpcGateway.cs" />
+    <Compile Include="L1_Domain\ISecurOsGateway.cs" />
+    <Compile Include="L1_Domain\ItemStateChanged.cs" />
+    <Compile Include="L1_Domain\SecurOsCommand.cs" />
+    <Compile Include="L3_Infrastructure\IidkAdapter.cs" />
+    <Compile Include="L3_Infrastructure\OpcAdapter.cs" />
+    <Compile Include="L3_Infrastructure\ConsoleLogger.cs" />
+    <Compile Include="L3_Infrastructure\OpcDaClient.cs" />
+    <Compile Include="L3_Infrastructure\OpcIntegrationExporter.cs" />
+    <Compile Include="L3_Infrastructure\SecurOsConnector.cs" />
+    <Compile Include="L3_Infrastructure\SecurOsMessage.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

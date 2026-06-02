@@ -136,6 +136,14 @@ namespace INTG_OPC_AVENAR_NET4_5
             SendMessage(objType, securosId, state);
         }
 
+        public void SendState(string nodeId, object rawOpcValue)
+        {
+            string objType, securosId;
+            if (!ParseClientHandle(nodeId, out objType, out securosId)) return;
+
+            SendMessage(objType, securosId, ResolveState(rawOpcValue));
+        }
+
         private static bool ParseClientHandle(string handle, out string objType, out string securosId)
         {
             objType = null;
