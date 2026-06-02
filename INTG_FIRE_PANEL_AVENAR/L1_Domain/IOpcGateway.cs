@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using INTG_FIRE_PANEL_AVENAR.Domain.ValueObjects;
 
 namespace INTG_FIRE_PANEL_AVENAR.Domain
 {

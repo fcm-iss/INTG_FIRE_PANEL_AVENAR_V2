@@ -75,8 +75,8 @@
     <Compile Include="L2_Application\SyncItemStateUseCase.cs" />
     <Compile Include="L1_Domain\IOpcGateway.cs" />
     <Compile Include="L1_Domain\ISecurOsGateway.cs" />
-    <Compile Include="L1_Domain\ItemStateChanged.cs" />
-    <Compile Include="L1_Domain\SecurOsCommand.cs" />
+    <Compile Include="L1_Domain\ValueObjects\ItemStateChanged.cs" />
+    <Compile Include="L1_Domain\ValueObjects\SecurOsCommand.cs" />
     <Compile Include="L3_Infrastructure\IidkAdapter.cs" />
     <Compile Include="L3_Infrastructure\OpcAdapter.cs" />
     <Compile Include="L3_Infrastructure\ConsoleLogger.cs" />

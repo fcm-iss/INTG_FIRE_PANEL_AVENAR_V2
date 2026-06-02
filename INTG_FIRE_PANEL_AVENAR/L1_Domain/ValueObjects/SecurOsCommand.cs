@@ -1,4 +1,4 @@
-namespace INTG_FIRE_PANEL_AVENAR.Domain
+namespace INTG_FIRE_PANEL_AVENAR.Domain.ValueObjects
 {
     public class SecurOsCommand
     {

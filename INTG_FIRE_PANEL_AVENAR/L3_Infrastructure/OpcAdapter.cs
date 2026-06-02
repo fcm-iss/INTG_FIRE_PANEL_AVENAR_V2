@@ -1,5 +1,6 @@
 using INTG_OPC;
 using INTG_FIRE_PANEL_AVENAR.Domain;
+using INTG_FIRE_PANEL_AVENAR.Domain.ValueObjects;
 using Opc.Da;
 using System;
 using System.Collections.Generic;

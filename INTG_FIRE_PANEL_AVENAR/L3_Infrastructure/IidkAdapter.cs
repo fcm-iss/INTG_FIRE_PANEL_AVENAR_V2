@@ -1,5 +1,5 @@
 using INTG_FIRE_PANEL_AVENAR.Domain;
-using INTG_FIRE_PANEL_AVENAR.Models;
+using INTG_FIRE_PANEL_AVENAR.Domain.ValueObjects;
 using System;
 
 namespace INTG_FIRE_PANEL_AVENAR.Infrastructure

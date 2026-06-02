@@ -1,4 +1,5 @@
 using System;
+using INTG_FIRE_PANEL_AVENAR.Domain.ValueObjects;
 
 namespace INTG_FIRE_PANEL_AVENAR.Domain
 {
