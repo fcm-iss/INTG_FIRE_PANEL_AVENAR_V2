@@ -1,6 +1,6 @@
-using INTG_OPC_AVENAR_NET4_5.Application;
-using INTG_OPC_AVENAR_NET4_5.Domain;
-using INTG_OPC_AVENAR_NET4_5.Infrastructure;
+using INTG_FIRE_PANEL_AVENAR.Application;
+using INTG_FIRE_PANEL_AVENAR.Domain;
+using INTG_FIRE_PANEL_AVENAR.Infrastructure;
 using ISS.OPCMonitor;
 using System;
 using System.Collections.Concurrent;
@@ -10,40 +10,79 @@ using System.IO;
 using System.ServiceProcess;
 using System.Threading.Tasks;
 
-namespace INTG_OPC_AVENAR_NET4_5
+namespace INTG_FIRE_PANEL_AVENAR
 {
     internal class App
     {
-        public void Run()
+        private enum AppMode { Integration, Monitor }
+
+        public void Run(string[] args)
         {
+            var mode = Array.Exists(args, a => a == "--integration") ? AppMode.Integration : AppMode.Monitor;
+
             using (var opcManager = new OpcAdapter())
             {
-                var selectedUrl = DiscoverAndSelectOpcServer(opcManager);
-                if (string.IsNullOrEmpty(selectedUrl)) return;
-
-                if (!opcManager.Connect(selectedUrl))
-                {
-                    Console.WriteLine("[APP]\t\tNo se pudo establecer conexión con el servidor OPC. Abortando.");
-                    return;
-                }
-
-                var exporterPath = ConfirmCreateIntegrationFiles()
-                    ? ExportOpcFiles(opcManager, selectedUrl)
-                    : FindExistingTreeExporterFile();
-
-                if (string.IsNullOrEmpty(exporterPath))
-                {
-                    Console.WriteLine("[APP]\t\tNo hay archivo de árbol disponible. Monitoreo no disponible.");
-                    return;
-                }
-
-                ConfirmAndDeployIntegrationFiles();
-
-                if (!ConfirmStartMonitoring()) return;
-
-                using (var securosManager = IidkAdapter.Connect())
-                    StartMonitoring(opcManager, securosManager, exporterPath);
+                if (mode == AppMode.Integration)
+                    RunIntegrationFlow(opcManager);
+                else
+                    RunMonitorFlow(opcManager);
             }
+        }
+
+        private static void RunIntegrationFlow(OpcAdapter opc)
+        {
+            var connectedUrl = DiscoverAndConnect(opc);
+            if (connectedUrl == null) return;
+
+            var exporterPath = ExportOpcFiles(opc, connectedUrl);
+            if (string.IsNullOrEmpty(exporterPath)) return;
+
+            ConfirmAndDeployIntegrationFiles();
+        }
+
+        private static void RunMonitorFlow(OpcAdapter opc)
+        {
+            var exporterPath = FindExistingTreeFile();
+            if (string.IsNullOrEmpty(exporterPath)) return;
+
+            if (!ConnectFromTreeFile(opc, exporterPath)) return;
+            if (!ConfirmStartMonitoring()) return;
+
+            using (var securosManager = IidkAdapter.Connect())
+                StartMonitoring(opc, securosManager, exporterPath);
+        }
+
+        private static bool ConnectFromTreeFile(OpcAdapter opc, string exporterPath)
+        {
+            var serverUrl = OpcIntegrationExporter.ReadServerUrlFromTreeJson(exporterPath);
+            if (string.IsNullOrEmpty(serverUrl))
+            {
+                LogError("Campo 'server' no encontrado en OPCTree.json — el archivo fue generado con una versión anterior. Ejecute primero con --integration para regenerarlo.");
+                return false;
+            }
+            if (!opc.Connect(serverUrl))
+            {
+                LogError($"No se pudo conectar al servidor OPC '{serverUrl}'. Verifique que el servidor esté activo.");
+                return false;
+            }
+            return true;
+        }
+
+        private static void LogError(string message)
+        {
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            var line      = $"[{timestamp}] [ERROR] {message}";
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[APP]\t\t{line}");
+            Console.ResetColor();
+
+            try
+            {
+                var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "error.log");
+                File.AppendAllText(logPath, line + Environment.NewLine);
+            }
+            catch { }
         }
 
         // ══════════════════════════════════════════════════════════════════
@@ -85,7 +124,7 @@ namespace INTG_OPC_AVENAR_NET4_5
             var treeDir        = Path.Combine(baseDir, "Config", "tree");
             var integrationDir = Path.Combine(baseDir, "Config", "integration");
 
-            var exporterPath    = Path.Combine(treeDir,        "treeExporter.json");
+            var exporterPath    = Path.Combine(treeDir,        "OPCTree.json");
             var commandPath     = Path.Combine(treeDir,        "commands.json");
             var integrationPath = Path.Combine(integrationDir, $"{prefixClean}.integration.json");
             var ddiPath         = Path.Combine(integrationDir, $"securos.{prefixClean}.ddi");
@@ -152,17 +191,17 @@ namespace INTG_OPC_AVENAR_NET4_5
                 || answer.Equals("si", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string FindExistingTreeExporterFile()
+        private static string FindExistingTreeFile()
         {
-            var path = Path.Combine(ResolveOutputBaseDir(), "Config", "tree", "treeExporter.json");
+            var path = Path.Combine(ResolveOutputBaseDir(), "Config", "tree", "OPCTree.json");
 
             if (!File.Exists(path))
             {
-                Console.WriteLine("[APP]\t\tNo se encontró treeExporter.json en Config\\tree\\");
+                LogError("OPCTree.json no encontrado en Config\\tree\\. Ejecute primero con --integration para generarlo.");
                 return null;
             }
 
-            Console.WriteLine("[APP]\t\tUsando archivo existente: Config\\tree\\treeExporter.json");
+            Console.WriteLine("[APP]\t\tUsando archivo existente: Config\\tree\\OPCTree.json");
             return path;
         }
 
@@ -191,8 +230,17 @@ namespace INTG_OPC_AVENAR_NET4_5
                 return;
             }
 
-            Console.WriteLine("\n==================================================");
-            Console.Write("[APP]\t\t¿Desea detener el servicio, marcar el DBI y reiniciarlo? (s/n): ");
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("  --------------------------------------------------------------");
+            Console.WriteLine("   [!]  ATENCION: En este paso el servicio SecurOS se detendra");
+            Console.WriteLine("  --------------------------------------------------------------");
+            Console.WriteLine("   > Detendra el servicio SecurOS");
+            Console.WriteLine("   > Marcara el DBI como pendiente de importar");
+            Console.WriteLine("   > Reiniciara el servicio");
+            Console.WriteLine("  --------------------------------------------------------------");
+            Console.ResetColor();
+            Console.Write("\n[APP]\t\t¿Desea continuar? (s/n): ");
             var serviceAnswer = Console.ReadLine()?.Trim() ?? "";
             if (!serviceAnswer.Equals("s", StringComparison.OrdinalIgnoreCase) &&
                 !serviceAnswer.Equals("si", StringComparison.OrdinalIgnoreCase)) return;
@@ -406,6 +454,17 @@ namespace INTG_OPC_AVENAR_NET4_5
         // Descubrimiento de Servidor OPC
         // ══════════════════════════════════════════════════════════════════
         #region Descubrimiento de Servidor OPC
+        private static string DiscoverAndConnect(OpcAdapter opc)
+        {
+            var url = DiscoverAndSelectOpcServer(opc);
+            if (string.IsNullOrEmpty(url)) return null;
+
+            if (opc.Connect(url)) return url;
+
+            Console.WriteLine("[APP]\t\tNo se pudo establecer conexión con el servidor OPC. Abortando.");
+            return null;
+        }
+
         private static string DiscoverAndSelectOpcServer(IOpcGateway opc)
         {
             var servers = opc.GetAvailableServers();

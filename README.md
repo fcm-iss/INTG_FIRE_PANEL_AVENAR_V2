@@ -16,7 +16,7 @@ El proyecto implementa **Arquitectura Hexagonal (Ports & Adapters)** organizada 
 ║                       │                                        ║
 ║                       │  instancia adaptadores y casos de uso  ║
 ╚════════════════════════════════════════════════════════════════╝
-                         │
+                        │
 ╔════════════════════════════════════════════════════════════════╗
 ║                   L3 · INFRASTRUCTURE                          ║
 ║                                                                ║
@@ -173,55 +173,56 @@ INTG_OPC_AVENAR_NET4_5/
 
 Verificar que estén instalados antes de continuar:
 
-| Componente | Cómo verificar |
-|---|---|
-| .NET Framework 4.8 | `Panel de control > Programas > .NET Framework` |
+| Componente                    | Cómo verificar                                                  |
+| ----------------------------- | --------------------------------------------------------------- |
+| .NET Framework 4.8            | `Panel de control > Programas > .NET Framework`                 |
 | Driver OPC DA de Bosch Avenar | `OPC Core Components` visibles en `regedit > HKLM\SOFTWARE\OPC` |
-| ISS SecurOS | Servicio `VmsServer` visible en `services.msc` |
+| ISS SecurOS                   | Servicio `VmsServer` visible en `services.msc`                  |
 
 ---
 
 ### Paso 2 — Configurar `App.config`
 
 El archivo de configuración está en:
+
 ```
 INTG_OPC_AVENAR_NET4_5\Config\App.config
 ```
 
 #### Conexión SecurOS (IIDK)
 
-| Clave | Ejemplo | Cómo obtener el valor |
-|---|---|---|
-| `securos_host` | `127.0.0.1` | IP del servidor SecurOS. Si está en la misma máquina, dejar `127.0.0.1` |
-| `securos_port` | `3000` | En SecurOS: `Configuración del sistema > IIDK > Puerto`. Por defecto es `3000` |
-| `idUinP` | `3` | En SecurOS: `Administración > Hardware > IIDK` — es el **ID** del objeto IIDK creado para esta integración |
-| `username` | `ISS` | Usuario de SecurOS con permisos de operador |
-| `password` | `pass` | Contraseña del usuario de SecurOS |
+| Clave          | Ejemplo     | Cómo obtener el valor                                                                                      |
+| -------------- | ----------- | ---------------------------------------------------------------------------------------------------------- |
+| `securos_host` | `127.0.0.1` | IP del servidor SecurOS. Si está en la misma máquina, dejar `127.0.0.1`                                    |
+| `securos_port` | `3000`      | En SecurOS: `Configuración del sistema > IIDK > Puerto`. Por defecto es `3000`                             |
+| `idUinP`       | `3`         | En SecurOS: `Administración > Hardware > IIDK` — es el **ID** del objeto IIDK creado para esta integración |
+| `username`     | `ISS`       | Usuario de SecurOS con permisos de operador                                                                |
+| `password`     | `pass`      | Contraseña del usuario de SecurOS                                                                          |
 
 > **Cómo crear el objeto IIDK en SecurOS:**
 > Administración → árbol de hardware → clic derecho en el servidor → Agregar → IIDK → asignar un ID numérico libre. Ese número es `idUinP`.
 
 #### Archivos de integración (DDI/DBI/JSON)
 
-| Clave | Ejemplo | Descripción |
-|---|---|---|
-| `ddi_prefix` | `AVEJ1_` | Prefijo libre para nombrar los archivos exportados. Se recomienda incluir el nombre del panel o zona |
-| `allowed_types` | *(vacío)* | Filtra los tipos OPC a exportar (ej: `LZ,GR`). Vacío exporta todos |
-| `output_base_dir` | `../..` | Directorio base para los archivos exportados, relativo al `.exe`. `../..` apunta a la raíz del repositorio |
+| Clave             | Ejemplo   | Descripción                                                                                                |
+| ----------------- | --------- | ---------------------------------------------------------------------------------------------------------- |
+| `ddi_prefix`      | `AVEJ1_`  | Prefijo libre para nombrar los archivos exportados. Se recomienda incluir el nombre del panel o zona       |
+| `allowed_types`   | _(vacío)_ | Filtra los tipos OPC a exportar (ej: `LZ,GR`). Vacío exporta todos                                         |
+| `output_base_dir` | `../..`   | Directorio base para los archivos exportados, relativo al `.exe`. `../..` apunta a la raíz del repositorio |
 
 #### Rutas de SecurOS
 
-| Clave | Ejemplo | Cómo obtener el valor |
-|---|---|---|
-| `securos_install_dir` | `C:\Program Files (x86)\ISS\SecurOS` | Ruta de instalación de SecurOS. Ver en `Panel de control > Programas > ISS SecurOS` o buscar el directorio donde está `SecurOS.exe` |
-| `securos_integration_dir` | `C:\Program Files (x86)\ISS\SecurOS\integrations` | Subcarpeta `integrations` dentro del directorio anterior. Allí van el `.json` de la integración |
-| `securos_service_name` | `VmsServer` | Nombre del servicio Windows de SecurOS. Abrir `services.msc` y buscar el servicio ISS. Copiar el nombre exacto del campo **Nombre** (no el nombre para mostrar) |
+| Clave                     | Ejemplo                                           | Cómo obtener el valor                                                                                                                                           |
+| ------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `securos_install_dir`     | `C:\Program Files (x86)\ISS\SecurOS`              | Ruta de instalación de SecurOS. Ver en `Panel de control > Programas > ISS SecurOS` o buscar el directorio donde está `SecurOS.exe`                             |
+| `securos_integration_dir` | `C:\Program Files (x86)\ISS\SecurOS\integrations` | Subcarpeta `integrations` dentro del directorio anterior. Allí van el `.json` de la integración                                                                 |
+| `securos_service_name`    | `VmsServer`                                       | Nombre del servicio Windows de SecurOS. Abrir `services.msc` y buscar el servicio ISS. Copiar el nombre exacto del campo **Nombre** (no el nombre para mostrar) |
 
 #### Monitoreo
 
-| Clave | Ejemplo | Descripción |
-|---|---|---|
-| `monitoring_update_rate_ms` | `500` | Frecuencia de suscripción OPC en milisegundos. Valores recomendados: `500`–`1000` |
+| Clave                       | Ejemplo | Descripción                                                                       |
+| --------------------------- | ------- | --------------------------------------------------------------------------------- |
+| `monitoring_update_rate_ms` | `500`   | Frecuencia de suscripción OPC en milisegundos. Valores recomendados: `500`–`1000` |
 
 ---
 
@@ -231,53 +232,79 @@ Abrir la solución `INTG_FIRE_PANEL_AVENAR_V2.slnx` en Visual Studio 2022 y comp
 
 ---
 
-### Paso 4 — Primera ejecución (generar archivos de integración)
+### Paso 4 — Modos de arranque
+
+La aplicación tiene dos modos de ejecución seleccionables por argumento de línea de comandos.
 
 > Ejecutar siempre como **Administrador**.
 
+---
+
+#### Modo integración `--integration`
+
+Genera los archivos de configuración del panel y los despliega en SecurOS. **Usar la primera vez o cuando cambie la configuración del panel.**
+
+**Desde terminal:**
 ```
-1. Iniciar la aplicación
-2. [APP] Seleccionar servidor OPC de la lista (auto-descubierto)
-3. [APP] ¿Desea generar los archivos de integración? → s
-        → Exporta treeExporter.json, commands.json, DDI, DBI y JSON
-4. [APP] ¿Desea copiar los archivos de integración a SecurOS? → s
-        → Copia DDI y DBI a securos_install_dir
-        → Copia JSON a securos_integration_dir
-5. [APP] ¿Desea detener el servicio, marcar el DBI y reiniciarlo? → s
-        → Detiene VmsServer, marca el DBI como pendiente de importar, reinicia
-6. [APP] ¿Desea iniciar el monitoreo? → n   (en la primera ejecución esperar
-                                             a que SecurOS importe el DDI/DBI)
+INTG_OPC_AVENAR_NET4_5.exe --integration
 ```
 
-> Después del reinicio, SecurOS importa automáticamente el DDI/DBI y crea los objetos del panel en su base de datos. Este proceso puede tardar 1–2 minutos.
+**Desde Visual Studio:**
+`Propiedades del proyecto > Depurar > Argumentos de la línea de comandos` → escribir `--integration`
+
+**Flujo:**
+```
+1. Seleccionar servidor OPC (auto-descubierto)
+2. [APP] ¿Desea sobreescribir los archivos existentes? → s/n
+        → Exporta treeExporter.json, commands.json, DDI, DBI y JSON
+3. [APP] ¿Desea copiar los archivos de integración a SecurOS? → s/n
+        → Copia DDI y DBI a securos_install_dir
+        → Copia JSON a securos_integration_dir
+4. [!]  ATENCION: El servicio SecurOS se detendra
+   [APP] ¿Desea continuar? → s/n
+        → Detiene VmsServer
+        → Marca el DBI como pendiente de importar
+        → Reinicia el servicio
+```
+
+> Después del reinicio, SecurOS importa el DDI/DBI automáticamente (~1–2 min). Luego ejecutar en modo monitor.
 
 ---
 
-### Paso 5 — Ejecuciones posteriores (monitoreo continuo)
+#### Modo monitor *(por defecto)*
 
-Una vez que SecurOS ya tiene los objetos importados:
+Conecta con SecurOS y el panel OPC e inicia el monitoreo bidireccional en tiempo real. **Uso diario normal.**
 
+**Desde terminal:**
 ```
-1. Iniciar la aplicación como Administrador
-2. [APP] Seleccionar servidor OPC
-3. [APP] ¿Desea generar los archivos de integración? → n
-        → Usa el treeExporter.json existente en Config\tree\
-4. [APP] ¿Desea copiar los archivos de integración a SecurOS? → n
-5. [APP] ¿Desea iniciar el monitoreo? → s
-        → La integración queda activa
-        → Presionar cualquier tecla para desconectar
+INTG_OPC_AVENAR_NET4_5.exe
 ```
+
+**Desde Visual Studio:**
+Ejecutar con **F5** sin ningún argumento configurado.
+
+**Flujo:**
+```
+1. Seleccionar servidor OPC (auto-descubierto)
+        → Carga treeExporter.json desde Config\tree\
+2. [APP] ¿Desea iniciar el monitoreo? → s/n
+        → Conecta con SecurOS vía IIDK
+        → Suscribe cambios del panel OPC
+        → Integración activa — presionar cualquier tecla para detener
+```
+
+> Si no existe `treeExporter.json`, la aplicación avisa que se debe ejecutar primero con `--integration`.
 
 ---
 
 ### Diagrama de arranque
 
 ```
-¿Primera vez?
+¿Primera vez o cambio en el panel?
      │
-     ├─ SÍ ──► Paso 4: Generar DDI/DBI → Copiar → Reiniciar SecurOS
-     │                      │
-     │               SecurOS importa objetos (~1-2 min)
-     │                      │
-     └─ NO ──► Paso 5: Seleccionar OPC → Iniciar monitoreo ◄──────┘
+     ├─ SÍ ──► --integration: Exportar → Desplegar → Reiniciar SecurOS
+     │                               │
+     │                    SecurOS importa objetos (~1-2 min)
+     │                               │
+     └─ NO ──────────────────────────┴──► (sin flag): Monitoreo activo
 ```

@@ -1,8 +1,8 @@
-using INTG_OPC_AVENAR_NET4_5.Domain;
-using INTG_OPC_AVENAR_NET4_5.Models;
+using INTG_FIRE_PANEL_AVENAR.Domain;
+using INTG_FIRE_PANEL_AVENAR.Models;
 using System;
 
-namespace INTG_OPC_AVENAR_NET4_5.Infrastructure
+namespace INTG_FIRE_PANEL_AVENAR.Infrastructure
 {
     public class IidkAdapter : ISecurOsGateway
     {

@@ -153,7 +153,7 @@ namespace ISS.OPCMonitor
         }
 
         // ══════════════════════════════════════════════════════════════════
-        // ExportOpcTreeWithPropertiesToJson  →  treeExporter_*.json
+        // ExportOpcTreeWithPropertiesToJson  →  OPCTree.json
         // ══════════════════════════════════════════════════════════════════
 
         /// <summary>
@@ -181,6 +181,7 @@ namespace ISS.OPCMonitor
                 { "elementType", "branch" },
                 { "itemName",    "" },
                 { "securosId",   "" },
+                { "server",      _serverUrl },
                 { "children",    BuildChildNodes(null) }
             };
         }
@@ -566,6 +567,13 @@ namespace ISS.OPCMonitor
         {
             object value;
             return node.TryGetValue(fieldName, out value) ? value?.ToString() ?? "" : "";
+        }
+
+        public static string ReadServerUrlFromTreeJson(string jsonFilePath)
+        {
+            var json     = ReadJsonFileContent(jsonFilePath);
+            var rootNode = DeserializeJsonRootNode(json);
+            return ReadStringField(rootNode, "server");
         }
 
         // ══════════════════════════════════════════════════════════════════

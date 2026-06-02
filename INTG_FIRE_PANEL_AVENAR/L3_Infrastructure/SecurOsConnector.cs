@@ -1,4 +1,4 @@
-using INTG_OPC_AVENAR_NET4_5.Models;
+using INTG_FIRE_PANEL_AVENAR.Models;
 using SecurosIIDK;
 using Opc.Da;
 using System;
@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Web.Script.Serialization;
 
-namespace INTG_OPC_AVENAR_NET4_5
+namespace INTG_FIRE_PANEL_AVENAR
 {
     class SecurOsConnector : IDisposable
     {

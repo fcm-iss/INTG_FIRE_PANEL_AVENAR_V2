@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{DF5C0A5B-112C-4E7F-813A-5BAEC97C7947}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>INTG_OPC_AVENAR_NET4_5</RootNamespace>
-    <AssemblyName>INTG_OPC_AVENAR_NET4_5</AssemblyName>
+    <RootNamespace>INTG_FIRE_PANEL_AVENAR</RootNamespace>
+    <AssemblyName>INTG_FIRE_PANEL_AVENAR</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

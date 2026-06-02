@@ -1,8 +1,8 @@
-using INTG_OPC_AVENAR_NET4_5.Domain;
+using INTG_FIRE_PANEL_AVENAR.Domain;
 using System;
 using System.Collections.Generic;
 
-namespace INTG_OPC_AVENAR_NET4_5.Application
+namespace INTG_FIRE_PANEL_AVENAR.Application
 {
     public class ExecuteSecurOsCommandUseCase
     {

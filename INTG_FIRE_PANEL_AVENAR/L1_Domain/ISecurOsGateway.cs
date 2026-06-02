@@ -1,6 +1,6 @@
 using System;
 
-namespace INTG_OPC_AVENAR_NET4_5.Domain
+namespace INTG_FIRE_PANEL_AVENAR.Domain
 {
     public interface ISecurOsGateway : IDisposable
     {

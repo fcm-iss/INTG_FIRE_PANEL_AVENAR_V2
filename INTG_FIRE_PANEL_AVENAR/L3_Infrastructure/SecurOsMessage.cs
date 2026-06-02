@@ -1,4 +1,4 @@
-namespace INTG_OPC_AVENAR_NET4_5.Models
+namespace INTG_FIRE_PANEL_AVENAR.Models
 {
     class SecurOsMessage
     {
