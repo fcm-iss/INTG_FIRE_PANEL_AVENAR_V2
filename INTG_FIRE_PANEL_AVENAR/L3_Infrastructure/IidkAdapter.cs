@@ -26,7 +26,8 @@ namespace INTG_FIRE_PANEL_AVENAR.Infrastructure
         public void SendItemState(string nodeId, object rawOpcValue)
             => _connector.SendState(nodeId, rawOpcValue);
 
-        public void CreateTestObjects() => _connector.CreateTestObjects();
+        public void CreateObjectsInSecurOs(string treeJsonPath, string ddiPrefix)
+            => _connector.CreateObjectsInSecurOs(treeJsonPath, ddiPrefix);
 
         public void Dispose() => _connector.Dispose();
     }

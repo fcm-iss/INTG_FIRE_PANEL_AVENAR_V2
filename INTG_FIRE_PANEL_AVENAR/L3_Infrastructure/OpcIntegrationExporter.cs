@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
@@ -1528,5 +1529,72 @@ namespace ISS.OPCMonitor
             });
 
         #endregion
+
+        #region Creación de objetos en SecurOS
+
+        public static List<OpcObjectSpec> ExtractObjectSpecsFromTree(string treeJsonPath, string prefix)
+        {
+            var json     = ReadJsonFileContent(treeJsonPath);
+            var rootNode = DeserializeJsonRootNode(json);
+            var hostname = Dns.GetHostName();
+            var specs    = new List<OpcObjectSpec>();
+
+            foreach (var panelNode in GetChildNodes(rootNode))
+            {
+                var panelId = ReadStringField(panelNode, "securosId");
+                if (string.IsNullOrEmpty(panelId)) continue;
+
+                var panelName = ReadStringField(panelNode, "name");
+                var panelType = prefix + StripDigits(Normalize(panelName));
+                specs.Add(new OpcObjectSpec(panelType, panelId, panelName, parentId: "", isPanel: true));
+
+                CollectItemObjectSpecs(panelNode, specs);
+            }
+
+            return specs;
+        }
+
+        private static void CollectItemObjectSpecs(Dictionary<string, object> node, List<OpcObjectSpec> specs)
+        {
+            foreach (var child in GetChildNodes(node))
+            {
+                var elementType = ReadStringField(child, "elementType");
+                var isItem      = elementType == "item" || elementType == "branch|item";
+
+                if (isItem)
+                {
+                    var objType   = ReadStringField(child, "objType");
+                    var securosId = ReadStringField(child, "securosId");
+                    var name      = ReadStringField(child, "name");
+                    var parentId  = ReadStringField(child, "securosParentId");
+
+                    if (!string.IsNullOrEmpty(objType) && !string.IsNullOrEmpty(securosId))
+                        specs.Add(new OpcObjectSpec(objType, securosId, name, parentId));
+                }
+
+                if (elementType != "item")
+                    CollectItemObjectSpecs(child, specs);
+            }
+        }
+
+        #endregion
+    }
+
+    public class OpcObjectSpec
+    {
+        public string ObjType  { get; }
+        public string ObjId    { get; }
+        public string Name     { get; }
+        public string ParentId { get; }
+        public bool   IsPanel  { get; }
+
+        public OpcObjectSpec(string objType, string objId, string name, string parentId, bool isPanel = false)
+        {
+            ObjType  = objType;
+            ObjId    = objId;
+            Name     = name;
+            ParentId = parentId;
+            IsPanel  = isPanel;
+        }
     }
 }

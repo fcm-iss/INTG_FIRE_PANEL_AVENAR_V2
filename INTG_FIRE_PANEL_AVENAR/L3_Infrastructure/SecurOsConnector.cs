@@ -1,7 +1,9 @@
 using INTG_FIRE_PANEL_AVENAR.Models;
+using ISS.OPCMonitor;
 using SecurosIIDK;
 using Opc.Da;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
@@ -20,10 +22,48 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         public event Action<SecurOsMessage> MessageReceived;
 
+        // SecurOS envía GET_CONFIG para todos los objetos existentes al conectar
+        // y finaliza el burst con SLAVE|hostname.idUinP|INITIALIZATION_COMPLETE.
+        private readonly ConcurrentBag<int>      _existingIntegrationIds  = new ConcurrentBag<int>();
+        private readonly ManualResetEventSlim     _initializationComplete  = new ManualResetEventSlim(false);
+
         private SecurOsConnector(IidkManager securosIidkManager)
         {
             _Securos = securosIidkManager;
             _Securos.OnSecurOSMessage += OnMessageReceived;
+            _Securos.OnSecurOSMessage += ProcessInitialConfigBurst;
+        }
+
+        private void ProcessInitialConfigBurst(SecurosIIDK.Message msg)
+        {
+            if (string.Equals(msg.Type,   "INTEGRATION", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(msg.Action, "GET_CONFIG",  StringComparison.OrdinalIgnoreCase))
+            {
+                int id;
+                if (int.TryParse(msg.Id, out id) && id > 0)
+                    _existingIntegrationIds.Add(id);
+            }
+            else if (string.Equals(msg.Type,   "SLAVE",                  StringComparison.OrdinalIgnoreCase) &&
+                     string.Equals(msg.Action, "INITIALIZATION_COMPLETE", StringComparison.OrdinalIgnoreCase))
+            {
+                try { _initializationComplete.Set(); } catch (ObjectDisposedException) { }
+            }
+        }
+
+        private void WaitForInitializationComplete()
+        {
+            // Conexiones cortas (creación de objetos) pueden no recibir el burst completo.
+            // El timeout es esperado en ese caso — el flujo continúa con el fallback a idUinP.
+            const int TimeoutMs = 2000;
+            bool received = _initializationComplete.Wait(TimeoutMs);
+            var ids = new List<int>(_existingIntegrationIds);
+
+            if (received)
+                Console.WriteLine($"[SecurOS]\tConfiguración inicial completa — IDs INTEGRATION detectados: [{string.Join(", ", ids)}]");
+            else if (ids.Count > 0)
+                Console.WriteLine($"[SecurOS]\tBurst parcial recibido — IDs INTEGRATION detectados: [{string.Join(", ", ids)}]");
+            else
+                Console.WriteLine("[SecurOS]\tSin burst inicial — usando idUinP del config como parent_id.");
         }
 
         public void Dispose()
@@ -31,6 +71,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             if (_disposed) return;
             DisconnectSecurOs();
             (_Securos as IDisposable)?.Dispose();
+            _initializationComplete.Dispose();
             _disposed = true;
         }
 
@@ -54,8 +95,13 @@ namespace INTG_FIRE_PANEL_AVENAR
             var id   = ConfigurationManager.AppSettings["idUinP"]       ?? "1";
 
             var iidkManager = new IidkManager();
+
+            // El listener se registra ANTES de conectar para no perder
+            // el burst de GET_CONFIG que SecurOS envía al establecer conexión.
+            var connector = new SecurOsConnector(iidkManager);
             WaitForConnection(iidkManager, host, port, id);
-            return new SecurOsConnector(iidkManager);
+            connector.WaitForInitializationComplete();
+            return connector;
         }
 
         private static void WaitForConnection(IidkManager manager, string host, string port, string id)
@@ -174,20 +220,51 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         #endregion
 
-        #region Pruebas de creación de objetos
+        #region Creación de objetos en SecurOS
 
-        public void CreateTestObjects()
+        public void CreateObjectsInSecurOs(string treeJsonPath, string ddiPrefix)
         {
-            var groupId    = "TEST_AVENAR_001";
-            var scriptId   = "TEST_SCRIPT_001";
-            var groupName  = "Avenar Test Group";
-            var scriptName = "Avenar Test Script";
-            var parentId = "3";
-            var script     = "print('Hello from Avenar integration test');";
+            // 1. Extraer paneles e ítems desde OPCTree.json
+            var objectSpecs = OpcIntegrationExporter.ExtractObjectSpecsFromTree(treeJsonPath, ddiPrefix);
 
-            SendCreateObject("AVEJ1_FIRE_PANEL",  groupId,  groupName,  parentId);
-            //SendCreateObject("NODEJS_SCRIPT", scriptId, scriptName, groupId);
-            //SendUpdateScript(scriptId, script);
+            // 2. Leer IDs de INTEGRATION capturados en el burst inicial de GET_CONFIG
+            //    Si no llegó ninguno, usar idUinP del config como fallback
+            var existingIds         = new List<int>(_existingIntegrationIds);
+            var integrationParentId = existingIds.Count > 0
+                ? FindNextAvailableCardinalId(existingIds).ToString()
+                : ConfigurationManager.AppSettings["idUinP"] ?? "1";
+
+            Console.WriteLine($"[SecurOS]\tIDs INTEGRATION existentes: [{string.Join(", ", existingIds)}]");
+            Console.WriteLine($"[SecurOS]\tUsando parent_id para paneles: {integrationParentId}");
+
+            // 3. Crear los paneles con parent_id = id del punto de integración
+            CreatePanelObjects(objectSpecs, integrationParentId);
+
+            // 4. Crear los ítems con parent_id = securosId de su panel
+            CreateItemObjects(objectSpecs);
+
+            Console.WriteLine("[SecurOS]\tCreación de objetos completada.");
+        }
+
+        private static int FindNextAvailableCardinalId(IEnumerable<int> existingIds)
+        {
+            var taken = new HashSet<int>(existingIds);
+            var next  = 1;
+            while (taken.Contains(next))
+                next++;
+            return next;
+        }
+
+        private void CreatePanelObjects(List<OpcObjectSpec> specs, string integrationParentId)
+        {
+            foreach (var spec in specs.FindAll(s => s.IsPanel))
+                SendCreateObject(spec.ObjType, spec.ObjId, spec.Name, integrationParentId);
+        }
+
+        private void CreateItemObjects(List<OpcObjectSpec> specs)
+        {
+            foreach (var spec in specs.FindAll(s => !s.IsPanel))
+                SendCreateObject(spec.ObjType, spec.ObjId, spec.Name, spec.ParentId);
         }
 
         private void SendCreateObject(string objType, string objId, string name, string parentId)
@@ -201,19 +278,6 @@ namespace INTG_FIRE_PANEL_AVENAR
             var msg = $"CORE|1|CREATE_OBJECT|objtype<{objType}>,objid<{objId}>,name<{name}>,parent_id<{parentId}>";
             _Securos.SendMessage(msg);
             Console.WriteLine($"[SecurOS]\tCREATE_OBJECT -> {objType} id={objId}");
-        }
-
-        private void SendUpdateScript(string objId, string programText)
-        {
-            if (!_Securos.IsConnected())
-            {
-                Console.WriteLine("[SecurOS]\tSin conexión — UPDATE_OBJECT descartado.");
-                return;
-            }
-
-            var msg = $"CORE|1|UPDATE_OBJECT|objtype<NODEJS_SCRIPT>,objid<{objId}>,program_text<{programText}>";
-            _Securos.SendMessage(msg);
-            Console.WriteLine($"[SecurOS]\tUPDATE_OBJECT -> NODEJS_SCRIPT id={objId}");
         }
 
         #endregion

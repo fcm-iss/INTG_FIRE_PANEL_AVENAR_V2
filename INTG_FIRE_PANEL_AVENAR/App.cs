@@ -14,34 +14,34 @@ namespace INTG_FIRE_PANEL_AVENAR
 {
     internal class App
     {
-        private enum AppMode { Integration, Monitor, Test }
+        private enum AppMode { Integration, Monitor, CreateSecurOsObjects }
 
         public void Run(string[] args)
         {
-            var mode = Array.Exists(args, a => a == "--integration") ? AppMode.Integration
-                     : Array.Exists(args, a => a == "--test")        ? AppMode.Test
-                     : AppMode.Monitor;
+            //var mode = Array.Exists(args, a => a == "--integration")              ? AppMode.Integration
+            //         : Array.Exists(args, a => a == "--create-securos-objects")   ? AppMode.CreateSecurOsObjects
+            //         : AppMode.Monitor;
+            var mode = AppMode.Integration;
 
             using (var opcManager = new OpcAdapter())
             {
                 if (mode == AppMode.Integration)
                     RunIntegrationFlow(opcManager);
-                else if (mode == AppMode.Test)
-                    RunTestFlow();
+                else if (mode == AppMode.CreateSecurOsObjects)
+                    RunCreateSecurOsObjectsFlow();
                 else
                     RunMonitorFlow(opcManager);
             }
         }
 
-        private static void RunTestFlow()
+        private static void RunCreateSecurOsObjectsFlow()
         {
-            Console.WriteLine("[APP]\t\tModo prueba — conectando a SecurOS...");
+            var treeFilePath = FindExistingTreeFile();
+            if (string.IsNullOrEmpty(treeFilePath)) return;
+
+            Console.WriteLine("[APP]\t\tCreando objetos en SecurOS desde OPCTree.json...");
             using (var securos = IidkAdapter.Connect())
-            {
-                Console.WriteLine("[APP]\t\tCreando objetos de prueba en SecurOS...");
-                securos.CreateTestObjects();
-                Console.WriteLine("[APP]\t\tObjetos enviados. Verificar en SecurOS.");
-            }
+                CreateObjectsInSecurOs(securos, treeFilePath);
         }
 
         private static void RunIntegrationFlow(OpcAdapter opc)
@@ -53,6 +53,25 @@ namespace INTG_FIRE_PANEL_AVENAR
             if (string.IsNullOrEmpty(exporterPath)) return;
 
             ConfirmAndDeployIntegrationFiles();
+            ConfirmAndCreateObjectsInSecurOs(exporterPath);
+        }
+
+        private static void ConfirmAndCreateObjectsInSecurOs(string treeFilePath)
+        {
+            Console.WriteLine("\n==================================================");
+            Console.Write("[APP]\t\t¿Desea crear los objetos en SecurOS? (s/n): ");
+            var answer = Console.ReadLine()?.Trim() ?? "";
+            if (!answer.Equals("s", StringComparison.OrdinalIgnoreCase) &&
+                !answer.Equals("si", StringComparison.OrdinalIgnoreCase)) return;
+
+            using (var securos = IidkAdapter.Connect())
+                CreateObjectsInSecurOs(securos, treeFilePath);
+        }
+
+        private static void CreateObjectsInSecurOs(IidkAdapter securos, string treeFilePath)
+        {
+            var ddiPrefix = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
+            securos.CreateObjectsInSecurOs(treeFilePath, ddiPrefix);
         }
 
         private static void RunMonitorFlow(OpcAdapter opc)

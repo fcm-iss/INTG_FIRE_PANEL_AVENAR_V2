@@ -68,6 +68,12 @@
     <Reference Include="ISS.SecurOS.idk">
       <HintPath>C:\Program Files (x86)\ISS\SecurOS\ISS.SecurOS.idk.dll</HintPath>
     </Reference>
+    <Reference Include="log4net, Version=1.2.10.0, Culture=neutral, PublicKeyToken=1b44e1d426115821">
+      <HintPath>C:\Program Files (x86)\ISS\SecurOS\log4net.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed">
+      <HintPath>C:\Program Files (x86)\ISS\SecurOS\Newtonsoft.Json.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App.cs" />
@@ -91,6 +97,9 @@
     <None Include="app.manifest" />
     <None Include="Config\App.config" />
     <Content Include="Config\opc_states.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="log4cxx.properties">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <None Include="packages.config" />
