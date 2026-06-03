@@ -255,8 +255,9 @@ namespace ISS.OPCMonitor
         {
             var elementType       = DetermineElementType(element);
             var itemName          = ResolveItemName(element);
-            var node              = CreateBaseNodeFields(element.Name, elementType, itemName, nodeId);
             var integrationFields = ComputeIntegrationFields(element.Name, elementType, depth, parentIdStr, inheritedFields);
+            var securosParentId   = ResolveSecurosParentId(element, integrationFields);
+            var node              = CreateBaseNodeFields(element.Name, elementType, itemName, nodeId, securosParentId);
 
             AttachIntegrationFields(node, integrationFields);
             AttachItemPropertiesIfItem(node, element, itemName);
@@ -265,23 +266,32 @@ namespace ISS.OPCMonitor
             return node;
         }
 
+        private static string ResolveSecurosParentId(MergedElement element, Dictionary<string, string> integrationFields)
+        {
+            if (!element.IsItem || integrationFields == null) return null;
+            string panelId;
+            integrationFields.TryGetValue("panelId", out panelId);
+            return panelId;
+        }
+
         private Dictionary<string, string> ComputeIntegrationFields(string name, string elementType,
                                                                      int depth, string parentIdStr,
                                                                      Dictionary<string, string> inherited)
         {
             if (string.IsNullOrEmpty(parentIdStr)) return null;
-            if (depth == 1)                        return BuildOwnIntegrationFields(name, elementType);
+            if (depth == 1)                        return BuildOwnIntegrationFields(name, elementType, parentIdStr);
             if (depth > 1 && inherited != null)    return inherited;
             return null;
         }
 
-        private Dictionary<string, string> BuildOwnIntegrationFields(string name, string elementType)
+        private Dictionary<string, string> BuildOwnIntegrationFields(string name, string elementType, string panelId)
         {
             bool isBranch = elementType == "branch" || elementType == "branch|item";
             var fields = new Dictionary<string, string>
             {
                 ["objType"]  = _prefix + Normalize(name),
-                ["typeName"] = name
+                ["typeName"] = name,
+                ["panelId"]  = panelId
             };
             if (isBranch) fields["groupName"] = name;
             return fields;
@@ -292,7 +302,10 @@ namespace ISS.OPCMonitor
         {
             if (fields == null) return;
             foreach (var kv in fields)
+            {
+                if (kv.Key == "panelId") continue;
                 node[kv.Key] = kv.Value;
+            }
         }
 
         /// <summary>
@@ -316,15 +329,19 @@ namespace ISS.OPCMonitor
         /// name, elementType, itemName e id.
         /// </summary>
         private static Dictionary<string, object> CreateBaseNodeFields(string name, string elementType,
-                                                                        string itemName, string nodeId)
+                                                                        string itemName, string nodeId,
+                                                                        string securosParentId = null)
         {
-            return new Dictionary<string, object>
+            var fields = new Dictionary<string, object>
             {
                 { "name",        name },
                 { "elementType", elementType },
                 { "itemName",    itemName },
                 { "securosId",   nodeId }
             };
+            if (!string.IsNullOrEmpty(securosParentId))
+                fields["securosParentId"] = securosParentId;
+            return fields;
         }
 
         /// <summary>
@@ -452,11 +469,20 @@ namespace ISS.OPCMonitor
         }
 
         /// <summary>
-        /// Depth 0 — Extrae el último número del nombre del panel.
-        /// Ejemplo: "Fire Panel 1-1" → "1". CMD y License no contienen número → "".
+        /// Depth 0 — Extrae los dos últimos números del nombre del panel separados por ".".
+        /// Ejemplo: "Fire Panel 1-1" → "1.1", "Fire Panel 2-1" → "2.1". CMD/License → "".
         /// </summary>
         private static string ComputePanelNodeId(string name) =>
-            ExtractLastNumber(name);
+            ExtractLastTwoNumbers(name);
+
+        private static string ExtractLastTwoNumbers(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "";
+            var matches = Regex.Matches(name, @"\d+");
+            if (matches.Count == 0) return "";
+            if (matches.Count == 1) return matches[0].Value;
+            return matches[matches.Count - 2].Value + "-" + matches[matches.Count - 1].Value;
+        }
 
         /// <summary>
         /// Depth 1 — Construye el ID del tipo concatenando el ID del panel y un contador consecutivo.

@@ -51,7 +51,7 @@ namespace INTG_FIRE_PANEL_AVENAR
         {
             var host = ConfigurationManager.AppSettings["securos_host"] ?? "127.0.0.1";
             var port = ConfigurationManager.AppSettings["securos_port"] ?? "3000";
-            var id   = ConfigurationManager.AppSettings["idUinP"]       ?? "2";
+            var id   = ConfigurationManager.AppSettings["idUinP"]       ?? "1";
 
             var iidkManager = new IidkManager();
             WaitForConnection(iidkManager, host, port, id);
@@ -170,6 +170,50 @@ namespace INTG_FIRE_PANEL_AVENAR
             var msg = $"{objType}|{securosId}|{state}";
             _Securos.SendMessage(msg);
             Console.WriteLine($"[SecurOS]\tEnviado ->: {msg}");
+        }
+
+        #endregion
+
+        #region Pruebas de creación de objetos
+
+        public void CreateTestObjects()
+        {
+            var groupId    = "TEST_AVENAR_001";
+            var scriptId   = "TEST_SCRIPT_001";
+            var groupName  = "Avenar Test Group";
+            var scriptName = "Avenar Test Script";
+            var parentId = "3";
+            var script     = "print('Hello from Avenar integration test');";
+
+            SendCreateObject("AVEJ1_FIRE_PANEL",  groupId,  groupName,  parentId);
+            //SendCreateObject("NODEJS_SCRIPT", scriptId, scriptName, groupId);
+            //SendUpdateScript(scriptId, script);
+        }
+
+        private void SendCreateObject(string objType, string objId, string name, string parentId)
+        {
+            if (!_Securos.IsConnected())
+            {
+                Console.WriteLine("[SecurOS]\tSin conexión — CREATE_OBJECT descartado.");
+                return;
+            }
+
+            var msg = $"CORE|1|CREATE_OBJECT|objtype<{objType}>,objid<{objId}>,name<{name}>,parent_id<{parentId}>";
+            _Securos.SendMessage(msg);
+            Console.WriteLine($"[SecurOS]\tCREATE_OBJECT -> {objType} id={objId}");
+        }
+
+        private void SendUpdateScript(string objId, string programText)
+        {
+            if (!_Securos.IsConnected())
+            {
+                Console.WriteLine("[SecurOS]\tSin conexión — UPDATE_OBJECT descartado.");
+                return;
+            }
+
+            var msg = $"CORE|1|UPDATE_OBJECT|objtype<NODEJS_SCRIPT>,objid<{objId}>,program_text<{programText}>";
+            _Securos.SendMessage(msg);
+            Console.WriteLine($"[SecurOS]\tUPDATE_OBJECT -> NODEJS_SCRIPT id={objId}");
         }
 
         #endregion

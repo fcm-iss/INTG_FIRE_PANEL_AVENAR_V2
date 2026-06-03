@@ -14,18 +14,33 @@ namespace INTG_FIRE_PANEL_AVENAR
 {
     internal class App
     {
-        private enum AppMode { Integration, Monitor }
+        private enum AppMode { Integration, Monitor, Test }
 
         public void Run(string[] args)
         {
-            var mode = Array.Exists(args, a => a == "--integration") ? AppMode.Integration : AppMode.Monitor;
+            var mode = Array.Exists(args, a => a == "--integration") ? AppMode.Integration
+                     : Array.Exists(args, a => a == "--test")        ? AppMode.Test
+                     : AppMode.Monitor;
 
             using (var opcManager = new OpcAdapter())
             {
                 if (mode == AppMode.Integration)
                     RunIntegrationFlow(opcManager);
+                else if (mode == AppMode.Test)
+                    RunTestFlow();
                 else
                     RunMonitorFlow(opcManager);
+            }
+        }
+
+        private static void RunTestFlow()
+        {
+            Console.WriteLine("[APP]\t\tModo prueba — conectando a SecurOS...");
+            using (var securos = IidkAdapter.Connect())
+            {
+                Console.WriteLine("[APP]\t\tCreando objetos de prueba en SecurOS...");
+                securos.CreateTestObjects();
+                Console.WriteLine("[APP]\t\tObjetos enviados. Verificar en SecurOS.");
             }
         }
 

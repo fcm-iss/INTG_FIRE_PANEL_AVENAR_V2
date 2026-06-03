@@ -1,5 +1,6 @@
 using INTG_FIRE_PANEL_AVENAR.Domain;
 using INTG_FIRE_PANEL_AVENAR.Domain.ValueObjects;
+using INTG_FIRE_PANEL_AVENAR.Models;
 using System;
 
 namespace INTG_FIRE_PANEL_AVENAR.Infrastructure
@@ -24,6 +25,8 @@ namespace INTG_FIRE_PANEL_AVENAR.Infrastructure
 
         public void SendItemState(string nodeId, object rawOpcValue)
             => _connector.SendState(nodeId, rawOpcValue);
+
+        public void CreateTestObjects() => _connector.CreateTestObjects();
 
         public void Dispose() => _connector.Dispose();
     }
