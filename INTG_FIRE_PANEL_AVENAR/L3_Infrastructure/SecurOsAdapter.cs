@@ -1,7 +1,8 @@
-using INTG_FIRE_PANEL_AVENAR.Models;
+using INTG_FIRE_PANEL_AVENAR.Domain;
+using INTG_FIRE_PANEL_AVENAR.Domain.ValueObjects;
 using ISS.OPCMonitor;
-using SecurosIIDK;
 using Opc.Da;
+using SecurosIIDK;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -10,24 +11,25 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Web.Script.Serialization;
+using static SecurosIIDK.User32Wrapper;
 
 namespace INTG_FIRE_PANEL_AVENAR
 {
-    class SecurOsConnector : IDisposable
+    class SecurOsAdapter : ISecurOsGateway
     {
         #region Campos y Constructor
 
         private readonly IidkManager _Securos;
         private bool _disposed;
 
-        public event Action<SecurOsMessage> MessageReceived;
+        public event Action<SecurOsCommand> CommandReceived;
 
         // SecurOS envía GET_CONFIG para todos los objetos existentes al conectar
         // y finaliza el burst con SLAVE|hostname.idUinP|INITIALIZATION_COMPLETE.
         private readonly ConcurrentBag<int>      _existingIntegrationIds  = new ConcurrentBag<int>();
         private readonly ManualResetEventSlim     _initializationComplete  = new ManualResetEventSlim(false);
 
-        private SecurOsConnector(IidkManager securosIidkManager)
+        private SecurOsAdapter(IidkManager securosIidkManager)
         {
             _Securos = securosIidkManager;
             _Securos.OnSecurOSMessage += OnMessageReceived;
@@ -88,19 +90,24 @@ namespace INTG_FIRE_PANEL_AVENAR
             }
         }
 
-        public static SecurOsConnector Connect()
+        public static SecurOsAdapter Connect()
         {
+            Console.WriteLine("[SecurOS]\t\tinicio de conexion...");
             var host = ConfigurationManager.AppSettings["securos_host"] ?? "127.0.0.1";
             var port = ConfigurationManager.AppSettings["securos_port"] ?? "3000";
             var id   = ConfigurationManager.AppSettings["idUinP"]       ?? "1";
-
+            Console.WriteLine($"[SecurOS]\t\tidUinP{id}");
             var iidkManager = new IidkManager();
 
             // El listener se registra ANTES de conectar para no perder
             // el burst de GET_CONFIG que SecurOS envía al establecer conexión.
-            var connector = new SecurOsConnector(iidkManager);
+            Console.WriteLine("[SecurOS]\t\tCreando conector...");
+            var connector = new SecurOsAdapter(iidkManager);
+            Console.WriteLine("[SecurOS]\t\tesperando por conexion...");
             WaitForConnection(iidkManager, host, port, id);
+            Console.WriteLine("[SecurOS]\t\tEspereando inicializacion...");
             connector.WaitForInitializationComplete();
+            Console.WriteLine("[SecurOS]\t\tfin...");
             return connector;
         }
 
@@ -114,7 +121,15 @@ namespace INTG_FIRE_PANEL_AVENAR
                 if (state) try { connected.Set(); } catch (ObjectDisposedException) { }
             };
 
-            manager.SyncConnect(host, port, id);
+            // SyncConnect puede bloquearse indefinidamente si SecurOS no responde;
+            // se ejecuta en un hilo separado para poder aplicar el timeout externo.
+            var connectThread = new Thread(() =>
+            {
+                try { manager.SyncConnect(host, port, id); }
+                catch (Exception ex) { Console.WriteLine($"[SecurOS]\tError en SyncConnect: {ex.Message}"); }
+            }) { IsBackground = true };
+
+            connectThread.Start();
             bool ok = connected.Wait(TimeoutMs);
             connected.Dispose();
 
@@ -133,9 +148,9 @@ namespace INTG_FIRE_PANEL_AVENAR
             {
                 if (!message.IsValid) return;
 
-                var msg = BuildSecurOsMessage(message);
-                Console.WriteLine($"[SecurOS]\tRecibido <- Type:{msg.ObjType} Id:{msg.Id} Action:{msg.EventName} Params:{msg.Params}");
-                MessageReceived?.Invoke(msg);
+                var cmd = BuildCommand(message);
+                Console.WriteLine($"[SecurOS]\tRecibido <- Type:{cmd.ObjType} Id:{cmd.Id} Action:{cmd.EventName} Params:{cmd.Params}");
+                CommandReceived?.Invoke(cmd);
             }
             catch (Exception ex)
             {
@@ -143,16 +158,8 @@ namespace INTG_FIRE_PANEL_AVENAR
             }
         }
 
-        private static SecurOsMessage BuildSecurOsMessage(SecurosIIDK.Message iidk)
-        {
-            return new SecurOsMessage
-            {
-                ObjType   = iidk.Type   ?? "",
-                Id        = iidk.Id     ?? "",
-                EventName = iidk.Action ?? "",
-                Params    = BuildParamsString(iidk.Params)
-            };
-        }
+        private static SecurOsCommand BuildCommand(SecurosIIDK.Message iidk)
+            => new SecurOsCommand(iidk.Type ?? "", iidk.Id ?? "", iidk.Action ?? "", BuildParamsString(iidk.Params));
 
         private static string BuildParamsString(SecurosIIDK.IMessageParameters parameters)
         {
@@ -182,7 +189,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             SendMessage(objType, securosId, state);
         }
 
-        public void SendState(string nodeId, object rawOpcValue)
+        public void SendItemState(string nodeId, object rawOpcValue)
         {
             string objType, securosId;
             if (!ParseClientHandle(nodeId, out objType, out securosId)) return;
@@ -226,7 +233,7 @@ namespace INTG_FIRE_PANEL_AVENAR
         {
             // 1. Extraer paneles e ítems desde OPCTree.json
             var objectSpecs = OpcIntegrationExporter.ExtractObjectSpecsFromTree(treeJsonPath, ddiPrefix);
-
+            Console.WriteLine($"[SecurOS]\tobjeto json capturado");
             // 2. Leer IDs de INTEGRATION capturados en el burst inicial de GET_CONFIG
             //    Si no llegó ninguno, usar idUinP del config como fallback
             var existingIds         = new List<int>(_existingIntegrationIds);
@@ -238,8 +245,9 @@ namespace INTG_FIRE_PANEL_AVENAR
             Console.WriteLine($"[SecurOS]\tUsando parent_id para paneles: {integrationParentId}");
 
             // 3. Crear los paneles con parent_id = id del punto de integración
+            Console.WriteLine($"[SecurOS]\tcreando paneles...");
             CreatePanelObjects(objectSpecs, integrationParentId);
-
+            Console.WriteLine($"[SecurOS]\tcreando items...");
             // 4. Crear los ítems con parent_id = securosId de su panel
             CreateItemObjects(objectSpecs);
 

@@ -18,10 +18,10 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         public void Run(string[] args)
         {
-            //var mode = Array.Exists(args, a => a == "--integration")              ? AppMode.Integration
-            //         : Array.Exists(args, a => a == "--create-securos-objects")   ? AppMode.CreateSecurOsObjects
-            //         : AppMode.Monitor;
-            var mode = AppMode.Integration;
+            var mode = Array.Exists(args, a => a == "--integration") ? AppMode.Integration
+                     : Array.Exists(args, a => a == "--create-securos-objects") ? AppMode.CreateSecurOsObjects
+                     : AppMode.Monitor;
+            //mode = AppMode.CreateSecurOsObjects;
 
             using (var opcManager = new OpcAdapter())
             {
@@ -39,9 +39,18 @@ namespace INTG_FIRE_PANEL_AVENAR
             var treeFilePath = FindExistingTreeFile();
             if (string.IsNullOrEmpty(treeFilePath)) return;
 
-            Console.WriteLine("[APP]\t\tCreando objetos en SecurOS desde OPCTree.json...");
-            using (var securos = IidkAdapter.Connect())
-                CreateObjectsInSecurOs(securos, treeFilePath);
+            var ddiPrefix = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
+            try
+            {
+                using (var securos = SecurOsAdapter.Connect())
+                    securos.CreateObjectsInSecurOs(treeFilePath, ddiPrefix);
+
+                Console.WriteLine("[APP]\t\tObjetos creados exitosamente.");
+            }
+            catch (Exception ex)
+            {
+                LogError($"Error al crear objetos en SecurOS: {ex.Message}");
+            }
         }
 
         private static void RunIntegrationFlow(OpcAdapter opc)
@@ -52,26 +61,67 @@ namespace INTG_FIRE_PANEL_AVENAR
             var exporterPath = ExportOpcFiles(opc, connectedUrl);
             if (string.IsNullOrEmpty(exporterPath)) return;
 
-            ConfirmAndDeployIntegrationFiles();
-            ConfirmAndCreateObjectsInSecurOs(exporterPath);
+            bool serviceRestarted = ConfirmAndDeployIntegrationFiles();
+            ConfirmAndCreateObjectsInSecurOs(exporterPath, serviceRestarted);
         }
 
-        private static void ConfirmAndCreateObjectsInSecurOs(string treeFilePath)
+        private static void ConfirmAndCreateObjectsInSecurOs(string treeFilePath, bool waitForRestart)
         {
             Console.WriteLine("\n==================================================");
+
+            if (waitForRestart)
+                WaitForSecurOsRestart();
+
+            FlushConsoleInputBuffer();
             Console.Write("[APP]\t\t¿Desea crear los objetos en SecurOS? (s/n): ");
             var answer = Console.ReadLine()?.Trim() ?? "";
-            if (!answer.Equals("s", StringComparison.OrdinalIgnoreCase) &&
-                !answer.Equals("si", StringComparison.OrdinalIgnoreCase)) return;
+            Console.WriteLine($"[APP]\t\tRespuesta captada: {answer}");
 
-            using (var securos = IidkAdapter.Connect())
+            if (!answer.Equals("s", StringComparison.OrdinalIgnoreCase) &&
+                !answer.Equals("si", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine("[APP]\t\tCreación de objetos omitida.");
+                return;
+            }
+
+            Console.WriteLine("[APP]\t\tConectando a SecurOS...");
+            using (var securos = SecurOsAdapter.Connect())
+            {
+                Console.WriteLine("[APP]\t\tCreando objetos...");
                 CreateObjectsInSecurOs(securos, treeFilePath);
+            }
         }
 
-        private static void CreateObjectsInSecurOs(IidkAdapter securos, string treeFilePath)
+        private static void FlushConsoleInputBuffer()
+        {
+            while (Console.KeyAvailable)
+                Console.ReadKey(true);
+        }
+
+        private static void WaitForSecurOsRestart()
+        {
+            const int DelaySeconds = 30;
+            Console.WriteLine($"[APP]\t\tEsperando {DelaySeconds}s para que SecurOS reinicie e importe el DDI/DBI...");
+            for (int i = DelaySeconds; i > 0; i--)
+            {
+                Console.Write($"\r[APP]\t\t{i,2}s restantes...   ");
+                System.Threading.Thread.Sleep(1000);
+            }
+            Console.WriteLine("\r[APP]\t\tListo.                          ");
+        }
+
+        private static void CreateObjectsInSecurOs(SecurOsAdapter securos, string treeFilePath)
         {
             var ddiPrefix = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
-            securos.CreateObjectsInSecurOs(treeFilePath, ddiPrefix);
+            Console.WriteLine($"[APP]\t\tPrefijo: {ddiPrefix}");
+            try
+            {
+                securos.CreateObjectsInSecurOs(treeFilePath, ddiPrefix);
+            }
+            catch (Exception ex)
+            {
+                LogError($"Error al crear objetos en SecurOS: {ex.Message}");
+            }
         }
 
         private static void RunMonitorFlow(OpcAdapter opc)
@@ -80,9 +130,8 @@ namespace INTG_FIRE_PANEL_AVENAR
             if (string.IsNullOrEmpty(exporterPath)) return;
 
             if (!ConnectFromTreeFile(opc, exporterPath)) return;
-            if (!ConfirmStartMonitoring()) return;
 
-            using (var securosManager = IidkAdapter.Connect())
+            using (var securosManager = SecurOsAdapter.Connect())
                 StartMonitoring(opc, securosManager, exporterPath);
         }
 
@@ -150,7 +199,7 @@ namespace INTG_FIRE_PANEL_AVENAR
         private static string ExportOpcFiles(OpcAdapter opc, string selectedUrl)
         {
             var ddiPrefix    = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
-            var exporter     = new OpcIntegrationExporter(opc.OpcServer, ddiPrefix, selectedUrl);
+            var exporter     = opc.CreateExporter(ddiPrefix, selectedUrl);
             var baseDir      = ResolveOutputBaseDir();
             var allowedTypes = ResolveAllowedTypes();
             var prefixClean  = ddiPrefix.TrimEnd('_').ToLower();
@@ -239,13 +288,13 @@ namespace INTG_FIRE_PANEL_AVENAR
             return path;
         }
 
-        private static void ConfirmAndDeployIntegrationFiles()
+        private static bool ConfirmAndDeployIntegrationFiles()
         {
             Console.WriteLine("\n==================================================");
             Console.Write("[APP]\t\t¿Desea copiar los archivos de integración a SecurOS? (s/n): ");
             var answer = Console.ReadLine()?.Trim() ?? "";
             if (!answer.Equals("s", StringComparison.OrdinalIgnoreCase) &&
-                !answer.Equals("si", StringComparison.OrdinalIgnoreCase)) return;
+                !answer.Equals("si", StringComparison.OrdinalIgnoreCase)) return false;
 
             var baseDir     = ResolveOutputBaseDir();
             var prefixClean = (ConfigurationManager.AppSettings["ddi_prefix"] ?? "").TrimEnd('_').ToLower();
@@ -261,7 +310,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             if (!ddiOk || !dbiOk || !jsonOk)
             {
                 Console.WriteLine("[APP]\t\tAlgunos archivos no se copiaron correctamente — ciclo de servicio cancelado.");
-                return;
+                return false;
             }
 
             Console.WriteLine();
@@ -277,11 +326,12 @@ namespace INTG_FIRE_PANEL_AVENAR
             Console.Write("\n[APP]\t\t¿Desea continuar? (s/n): ");
             var serviceAnswer = Console.ReadLine()?.Trim() ?? "";
             if (!serviceAnswer.Equals("s", StringComparison.OrdinalIgnoreCase) &&
-                !serviceAnswer.Equals("si", StringComparison.OrdinalIgnoreCase)) return;
+                !serviceAnswer.Equals("si", StringComparison.OrdinalIgnoreCase)) return false;
 
             var dbiDestPath = Path.Combine(securosDir, "securos.dbi");
             var serviceName = ConfigurationManager.AppSettings["securos_service_name"] ?? "";
             StopMarkAndRestartService(serviceName, dbiDestPath);
+            return true;
         }
 
         private static void StopMarkAndRestartService(string displayName, string dbiPath)
@@ -471,17 +521,41 @@ namespace INTG_FIRE_PANEL_AVENAR
             var syncState   = new SyncItemStateUseCase(securOs);
             var execCommand = new ExecuteSecurOsCommandUseCase(xml => writeQueue.TryAdd(xml), commandNodeMap);
 
-            opc.StateChanged           += changes => syncState.Execute(changes);
-            securOs.CommandReceived    += cmd     => execCommand.Execute(cmd);
+            opc.StateChanged        += changes => syncState.Execute(changes);
+            securOs.CommandReceived += cmd     => execCommand.Execute(cmd);
+
+            RegisterShutdownHandlers(writeQueue);
 
             Console.WriteLine("\n==================================================");
-            Console.WriteLine("[APP]\t\tPresiona cualquier tecla para desconectar...");
+            Console.WriteLine("[APP]\t\tMonitoreo activo. Ctrl+C o cerrar ventana para detener.");
             Console.WriteLine("==================================================\n");
-
-            Task.Run(() => { Console.ReadKey(true); writeQueue.CompleteAdding(); });
 
             foreach (var xml in writeQueue.GetConsumingEnumerable())
                 opc.WriteCommand(xml);
+
+            Console.WriteLine("[APP]\t\tMonitoreo detenido. Desconectando...");
+        }
+
+        private static void RegisterShutdownHandlers(BlockingCollection<string> writeQueue)
+        {
+            void SignalShutdown()
+            {
+                if (!writeQueue.IsAddingCompleted)
+                    writeQueue.CompleteAdding();
+            }
+
+            Console.CancelKeyPress += (s, e) =>
+            {
+                e.Cancel = true;
+                Console.WriteLine("\n[APP]\t\tCtrl+C detectado — deteniendo monitoreo...");
+                SignalShutdown();
+            };
+
+            AppDomain.CurrentDomain.ProcessExit += (s, e) =>
+            {
+                Console.WriteLine("[APP]\t\tCierre detectado — desconectando OPC y SecurOS...");
+                SignalShutdown();
+            };
         }
         #endregion
         // ══════════════════════════════════════════════════════════════════

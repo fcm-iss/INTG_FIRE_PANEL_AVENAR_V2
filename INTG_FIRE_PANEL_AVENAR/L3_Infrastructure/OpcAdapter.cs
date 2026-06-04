@@ -1,6 +1,7 @@
 using INTG_OPC;
 using INTG_FIRE_PANEL_AVENAR.Domain;
 using INTG_FIRE_PANEL_AVENAR.Domain.ValueObjects;
+using ISS.OPCMonitor;
 using Opc.Da;
 using System;
 using System.Collections.Generic;
@@ -34,7 +35,8 @@ namespace INTG_FIRE_PANEL_AVENAR.Infrastructure
             StateChanged?.Invoke(items);
         }
 
-        internal Opc.Da.Server OpcServer                                                 => _client.Server;
+        internal OpcIntegrationExporter CreateExporter(string prefix, string serverUrl)
+            => new OpcIntegrationExporter(_client.Server, prefix, serverUrl);
 
         public IReadOnlyList<string> GetAvailableServers()                              => _client.GetAvailableServers();
         public bool Connect(string url)                                                  => _client.Connect(url);

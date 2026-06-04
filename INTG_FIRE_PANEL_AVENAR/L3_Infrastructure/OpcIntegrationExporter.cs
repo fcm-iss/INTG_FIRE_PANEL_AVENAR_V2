@@ -1544,9 +1544,10 @@ namespace ISS.OPCMonitor
                 var panelId = ReadStringField(panelNode, "securosId");
                 if (string.IsNullOrEmpty(panelId)) continue;
 
-                var panelName = ReadStringField(panelNode, "name");
-                var panelType = prefix + StripDigits(Normalize(panelName));
-                specs.Add(new OpcObjectSpec(panelType, panelId, panelName, parentId: "", isPanel: true));
+                var panelName     = ReadStringField(panelNode, "name");
+                var panelItemName = ReadStringField(panelNode, "itemName");
+                var panelType     = prefix + StripDigits(Normalize(panelName));
+                specs.Add(new OpcObjectSpec(panelType, panelId, panelItemName, parentId: "", isPanel: true));
 
                 CollectItemObjectSpecs(panelNode, specs);
             }
@@ -1565,11 +1566,11 @@ namespace ISS.OPCMonitor
                 {
                     var objType   = ReadStringField(child, "objType");
                     var securosId = ReadStringField(child, "securosId");
-                    var name      = ReadStringField(child, "name");
+                    var itemName  = ReadStringField(child, "itemName");
                     var parentId  = ReadStringField(child, "securosParentId");
 
                     if (!string.IsNullOrEmpty(objType) && !string.IsNullOrEmpty(securosId))
-                        specs.Add(new OpcObjectSpec(objType, securosId, name, parentId));
+                        specs.Add(new OpcObjectSpec(objType, securosId, itemName, parentId));
                 }
 
                 if (elementType != "item")

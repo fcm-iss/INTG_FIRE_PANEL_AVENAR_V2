@@ -66,7 +66,7 @@
     <Reference Include="System.ServiceProcess" />
     <Reference Include="System.Xml" />
     <Reference Include="ISS.SecurOS.idk">
-      <HintPath>C:\Program Files (x86)\ISS\SecurOS\ISS.SecurOS.idk.dll</HintPath>
+      <HintPath>Libs\Securos\ISS.SecurOS.idk.dll</HintPath>
     </Reference>
     <Reference Include="log4net, Version=1.2.10.0, Culture=neutral, PublicKeyToken=1b44e1d426115821">
       <HintPath>C:\Program Files (x86)\ISS\SecurOS\log4net.dll</HintPath>
@@ -83,13 +83,11 @@
     <Compile Include="L1_Domain\ISecurOsGateway.cs" />
     <Compile Include="L1_Domain\ValueObjects\ItemStateChanged.cs" />
     <Compile Include="L1_Domain\ValueObjects\SecurOsCommand.cs" />
-    <Compile Include="L3_Infrastructure\IidkAdapter.cs" />
     <Compile Include="L3_Infrastructure\OpcAdapter.cs" />
     <Compile Include="L3_Infrastructure\ConsoleLogger.cs" />
     <Compile Include="L3_Infrastructure\OpcDaClient.cs" />
     <Compile Include="L3_Infrastructure\OpcIntegrationExporter.cs" />
-    <Compile Include="L3_Infrastructure\SecurOsConnector.cs" />
-    <Compile Include="L3_Infrastructure\SecurOsMessage.cs" />
+    <Compile Include="L3_Infrastructure\SecurOsAdapter.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -109,6 +107,7 @@
     <Content Include="Libs\OPC\OpcNetApi.Com.dll" />
     <Content Include="Libs\OPC\OpcNetApi.dll" />
     <Content Include="Libs\OPC\OpcRcw.Comn.dll" />
+    <Content Include="Libs\Securos\ISS.SecurOS.idk.dll" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
