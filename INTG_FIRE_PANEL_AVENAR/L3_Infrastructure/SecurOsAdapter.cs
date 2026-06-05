@@ -20,52 +20,25 @@ namespace INTG_FIRE_PANEL_AVENAR
         #region Campos y Constructor
 
         private readonly IidkManager _Securos;
-        private bool _disposed;
+        private bool          _disposed;
+        private volatile bool _isReconnecting;
+        private string        _host;
+        private string        _port;
+        private string        _idUinP;
 
         public event Action<SecurOsCommand> CommandReceived;
 
-        // SecurOS envía GET_CONFIG para todos los objetos existentes al conectar
-        // y finaliza el burst con SLAVE|hostname.idUinP|INITIALIZATION_COMPLETE.
-        private readonly ConcurrentBag<int>      _existingIntegrationIds  = new ConcurrentBag<int>();
-        private readonly ManualResetEventSlim     _initializationComplete  = new ManualResetEventSlim(false);
-
-        private SecurOsAdapter(IidkManager securosIidkManager)
+        private SecurOsAdapter(IidkManager securosIidkManager, string host, string port, string idUinP)
         {
             _Securos = securosIidkManager;
-            _Securos.OnSecurOSMessage += OnMessageReceived;
-            _Securos.OnSecurOSMessage += ProcessInitialConfigBurst;
-        }
-
-        private void ProcessInitialConfigBurst(SecurosIIDK.Message msg)
-        {
-            if (string.Equals(msg.Type,   "INTEGRATION", StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(msg.Action, "GET_CONFIG",  StringComparison.OrdinalIgnoreCase))
+            _host    = host;
+            _port    = port;
+            _idUinP  = idUinP;
+            _Securos.OnSecurOSMessage      += OnMessageReceived;
+            _Securos.OnConnectionStateChanged += state =>
             {
-                int id;
-                if (int.TryParse(msg.Id, out id) && id > 0)
-                    _existingIntegrationIds.Add(id);
-            }
-            else if (string.Equals(msg.Type,   "SLAVE",                  StringComparison.OrdinalIgnoreCase) &&
-                     string.Equals(msg.Action, "INITIALIZATION_COMPLETE", StringComparison.OrdinalIgnoreCase))
-            {
-                try { _initializationComplete.Set(); } catch (ObjectDisposedException) { }
-            }
-        }
-
-        private void WaitForInitializationComplete()
-        {
-            // Conexiones cortas (creación de objetos) pueden no recibir el burst completo.
-            // El timeout es esperado en ese caso — el flujo continúa con el fallback a idUinP.
-            const int TimeoutMs = 2000;
-            bool received = _initializationComplete.Wait(TimeoutMs);
-            var ids = new List<int>(_existingIntegrationIds);
-
-            if (received)
-                Console.WriteLine($"[SecurOS]\tConfiguración inicial completa — IDs INTEGRATION detectados: [{string.Join(", ", ids)}]");
-            else if (ids.Count > 0)
-                Console.WriteLine($"[SecurOS]\tBurst parcial recibido — IDs INTEGRATION detectados: [{string.Join(", ", ids)}]");
-            else
-                Console.WriteLine("[SecurOS]\tSin burst inicial — usando idUinP del config como parent_id.");
+                if (!state) StartReconnectionInBackground("Conexión TCP perdida");
+            };
         }
 
         public void Dispose()
@@ -73,7 +46,6 @@ namespace INTG_FIRE_PANEL_AVENAR
             if (_disposed) return;
             DisconnectSecurOs();
             (_Securos as IDisposable)?.Dispose();
-            _initializationComplete.Dispose();
             _disposed = true;
         }
 
@@ -99,30 +71,47 @@ namespace INTG_FIRE_PANEL_AVENAR
             Console.WriteLine($"[SecurOS]\t\tidUinP{id}");
             var iidkManager = new IidkManager();
 
-            // El listener se registra ANTES de conectar para no perder
-            // el burst de GET_CONFIG que SecurOS envía al establecer conexión.
             Console.WriteLine("[SecurOS]\t\tCreando conector...");
-            var connector = new SecurOsAdapter(iidkManager);
-            Console.WriteLine("[SecurOS]\t\tesperando por conexion...");
+            var connector = new SecurOsAdapter(iidkManager, host, port, id);
+            Console.WriteLine("[SecurOS]\t\tEsperando conexión...");
             WaitForConnection(iidkManager, host, port, id);
-            Console.WriteLine("[SecurOS]\t\tEspereando inicializacion...");
+            Console.WriteLine("[SecurOS]\t\tVerificando punto de integración...");
             connector.WaitForInitializationComplete();
-            Console.WriteLine("[SecurOS]\t\tfin...");
             return connector;
         }
 
         private static void WaitForConnection(IidkManager manager, string host, string port, string id)
         {
-            const int TimeoutMs = 5000;
+            const int TimeoutMs    = 5000;
+            const int RetryDelayMs = 2000;
+
+            int attempt = 0;
+            while (true)
+            {
+                attempt++;
+                Console.WriteLine($"[SecurOS]\tIntento {attempt} -> {host}:{port}");
+
+                if (TryConnectOnce(manager, host, port, id, TimeoutMs))
+                    return;
+
+                Console.WriteLine($"[SecurOS]\tSin conexión en intento {attempt} — reintentando en {RetryDelayMs / 1000}s...");
+                Thread.Sleep(RetryDelayMs);
+            }
+        }
+
+        private static bool TryConnectOnce(IidkManager manager, string host, string port, string id, int timeoutMs)
+        {
             var connected = new ManualResetEventSlim(false);
 
-            manager.OnConnectionStateChanged += state =>
+            // SyncConnect puede bloquearse indefinidamente si SecurOS no responde;
+            // se ejecuta en un hilo separado para poder aplicar el timeout externo.
+            ConnectionStateListener onStateChanged = state =>
             {
                 if (state) try { connected.Set(); } catch (ObjectDisposedException) { }
             };
 
-            // SyncConnect puede bloquearse indefinidamente si SecurOS no responde;
-            // se ejecuta en un hilo separado para poder aplicar el timeout externo.
+            manager.OnConnectionStateChanged += onStateChanged;
+
             var connectThread = new Thread(() =>
             {
                 try { manager.SyncConnect(host, port, id); }
@@ -130,12 +119,77 @@ namespace INTG_FIRE_PANEL_AVENAR
             }) { IsBackground = true };
 
             connectThread.Start();
-            bool ok = connected.Wait(TimeoutMs);
+            bool signaled = connected.Wait(timeoutMs);
             connected.Dispose();
+            manager.OnConnectionStateChanged -= onStateChanged;
 
-            Console.WriteLine(ok
-                ? $"[SecurOS]\tConectado -> {host}:{port} id={id}"
-                : $"[SecurOS]\tTimeout esperando conexión a {host}:{port}");
+            if (signaled && manager.IsConnected())
+            {
+                Console.WriteLine($"[SecurOS]\tConectado -> {host}:{port} id={id}");
+                return true;
+            }
+
+            Console.WriteLine($"[SecurOS]\tTimeout esperando conexión a {host}:{port}");
+            return false;
+        }
+
+        private void WaitForInitializationComplete()
+        {
+            const int TcpTimeoutMs  = 5000;
+            const int InitTimeoutMs = 3000;
+            const int RetryDelayMs  = 2000;
+            int attempt = 0;
+
+            while (!_disposed)
+            {
+                if (!_Securos.IsConnected())
+                {
+                    attempt++;
+                    Console.WriteLine($"[SecurOS]\tIntento {attempt} -> {_host}:{_port}");
+                    if (!TryConnectOnce(_Securos, _host, _port, _idUinP, TcpTimeoutMs))
+                    {
+                        Console.WriteLine($"[SecurOS]\tSin conexión — reintentando en {RetryDelayMs / 1000}s...");
+                        Thread.Sleep(RetryDelayMs);
+                        continue;
+                    }
+                }
+
+                var initReceived = new ManualResetEventSlim(false);
+
+                SecurosIIDK.MessagesListener onMessage = msg =>
+                {
+                    if (string.Equals(msg.Type,   "SLAVE",                  StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(msg.Action, "INITIALIZATION_COMPLETE", StringComparison.OrdinalIgnoreCase))
+                        try { initReceived.Set(); } catch (ObjectDisposedException) { }
+                };
+
+                _Securos.OnSecurOSMessage += onMessage;
+                bool received = initReceived.Wait(InitTimeoutMs);
+                initReceived.Dispose();
+                _Securos.OnSecurOSMessage -= onMessage;
+
+                if (received)
+                {
+                    Console.WriteLine("[SecurOS]\tSecurOS inicializado — listo para monitoreo.");
+                    return;
+                }
+
+                Console.WriteLine("[SecurOS]\tEsperando inicialización de punto de integracion de SecurOS...");
+                Thread.Sleep(RetryDelayMs);
+            }
+        }
+
+        private void StartReconnectionInBackground(string reason)
+        {
+            if (_isReconnecting || _disposed) return;
+            _isReconnecting = true;
+
+            Console.WriteLine($"[SecurOS]\t{reason} — iniciando reconexión...");
+            new Thread(() =>
+            {
+                try   { WaitForInitializationComplete(); }
+                finally { _isReconnecting = false; }
+            }) { IsBackground = true }.Start();
         }
 
         #endregion
@@ -150,6 +204,15 @@ namespace INTG_FIRE_PANEL_AVENAR
 
                 var cmd = BuildCommand(message);
                 Console.WriteLine($"[SecurOS]\tRecibido <- Type:{cmd.ObjType} Id:{cmd.Id} Action:{cmd.EventName} Params:{cmd.Params}");
+
+                if (IsIntegrationDeleted(message))
+                {
+                    StartReconnectionInBackground("Sin Punto de integración.");
+                    return;
+                }
+
+                if (IsSystemMessage(message)) return;
+
                 CommandReceived?.Invoke(cmd);
             }
             catch (Exception ex)
@@ -157,6 +220,16 @@ namespace INTG_FIRE_PANEL_AVENAR
                 Console.WriteLine($"[SecurOS]\tError al procesar mensaje: {ex.Message}");
             }
         }
+
+        private bool IsIntegrationDeleted(SecurosIIDK.Message message)
+            => string.Equals(message.Type,   "INTEGRATION", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(message.Action, "DELETE",       StringComparison.OrdinalIgnoreCase)
+            && string.Equals(message.Id,      _idUinP,       StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsSystemMessage(SecurosIIDK.Message message)
+            => string.Equals(message.Type,   "INTEGRATION", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(message.Type,   "SLAVE",        StringComparison.OrdinalIgnoreCase)
+            || string.Equals(message.Action, "SETUP",        StringComparison.OrdinalIgnoreCase);
 
         private static SecurOsCommand BuildCommand(SecurosIIDK.Message iidk)
             => new SecurOsCommand(iidk.Type ?? "", iidk.Id ?? "", iidk.Action ?? "", BuildParamsString(iidk.Params));
@@ -231,37 +304,17 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         public void CreateObjectsInSecurOs(string treeJsonPath, string ddiPrefix)
         {
-            // 1. Extraer paneles e ítems desde OPCTree.json
-            var objectSpecs = OpcTreeReader.ExtractObjectDefinitionsFromTree(treeJsonPath, ddiPrefix);
-            Console.WriteLine($"[SecurOS]\tobjeto json capturado");
-            // 2. Leer IDs de INTEGRATION capturados en el burst inicial de GET_CONFIG
-            //    Si no llegó ninguno, usar idUinP del config como fallback
-            var existingIds         = new List<int>(_existingIntegrationIds);
-            var integrationParentId = existingIds.Count > 0
-                ? FindNextAvailableCardinalId(existingIds).ToString()
-                : ConfigurationManager.AppSettings["idUinP"] ?? "1";
+            var definitions         = OpcTreeReader.ExtractObjectDefinitionsFromTree(treeJsonPath, ddiPrefix);
+            var integrationParentId = ConfigurationManager.AppSettings["idUinP"] ?? "1";
 
-            Console.WriteLine($"[SecurOS]\tIDs INTEGRATION existentes: [{string.Join(", ", existingIds)}]");
             Console.WriteLine($"[SecurOS]\tUsando parent_id para paneles: {integrationParentId}");
 
-            // 3. Crear los paneles con parent_id = id del punto de integración
-            Console.WriteLine($"[SecurOS]\tcreando paneles...");
-            CreatePanelObjects(objectSpecs, integrationParentId);
-            Console.WriteLine($"[SecurOS]\tcreando items...");
-            // 4. Crear los ítems con parent_id = securosId de su panel
-            CreateItemObjects(objectSpecs);
+            CreatePanelObjects(definitions, integrationParentId);
+            CreateItemObjects(definitions);
 
             Console.WriteLine("[SecurOS]\tCreación de objetos completada.");
         }
 
-        private static int FindNextAvailableCardinalId(IEnumerable<int> existingIds)
-        {
-            var taken = new HashSet<int>(existingIds);
-            var next  = 1;
-            while (taken.Contains(next))
-                next++;
-            return next;
-        }
 
         private void CreatePanelObjects(List<SecurOsObjectDefinition> definitions, string integrationParentId)
         {
