@@ -1,32 +1,33 @@
-using INTG_OPC;
+﻿using INTG_OPC;
+using INTG_FIRE_PANEL_AVENAR.Application;
 using INTG_FIRE_PANEL_AVENAR.Domain;
 using INTG_FIRE_PANEL_AVENAR.Domain.ValueObjects;
-using ISS.OPCMonitor;
 using Opc.Da;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 
 namespace INTG_FIRE_PANEL_AVENAR.Infrastructure
 {
     public class OpcAdapter : IOpcGateway
     {
-        private readonly OpcClient _client;
+        private readonly OpcDaClient _opcDaClient;
 
-        public event Action<ItemStateChanged[]> StateChanged;
+        public event Action<ItemState[]> StateChanged;
 
         public OpcAdapter()
         {
-            _client = new OpcClient();
-            _client.PanelChanged += MapAndRaise;
+            _opcDaClient = new OpcDaClient();
+            _opcDaClient.PanelChanged += MapAndRaise;
         }
 
         private void MapAndRaise(ItemValueResult[] results)
         {
-            var items = new ItemStateChanged[results.Length];
+            var items = new ItemState[results.Length];
             for (int i = 0; i < results.Length; i++)
             {
                 var r = results[i];
-                items[i] = new ItemStateChanged(
+                items[i] = new ItemState(
                     r.ItemName,
                     r.ClientHandle?.ToString(),
                     r.Value,
@@ -35,13 +36,17 @@ namespace INTG_FIRE_PANEL_AVENAR.Infrastructure
             StateChanged?.Invoke(items);
         }
 
-        internal OpcIntegrationExporter CreateExporter(string prefix, string serverUrl)
-            => new OpcIntegrationExporter(_client.Server, prefix, serverUrl);
+        internal SecurOsFileExporter BuildSecurOsFileExporter(string prefix, string serverUrl)
+        {
+            var idUinP = ConfigurationManager.AppSettings["idUinP"] ?? "";
+            var tree   = _opcDaClient.BuildTree(prefix, serverUrl, idUinP);
+            return new SecurOsFileExporter(tree);
+        }
 
-        public IReadOnlyList<string> GetAvailableServers()                              => _client.GetAvailableServers();
-        public bool Connect(string url)                                                  => _client.Connect(url);
-        public bool StartMonitoring(Dictionary<string, string> nodeIdMap, int updateRateMs) => _client.StartIntegrationMonitoring(nodeIdMap, updateRateMs);
-        public bool WriteCommand(string commandXml)                                      => _client.WriteCommand(commandXml);
-        public void Dispose()                                                            => _client.Dispose();
+        public IReadOnlyList<string> GetAvailableServers()                              => _opcDaClient.GetAvailableServers();
+        public bool Connect(string url)                                                  => _opcDaClient.Connect(url);
+        public bool StartMonitoring(Dictionary<string, string> nodeIdMap, int updateRateMs) => _opcDaClient.StartIntegrationMonitoring(nodeIdMap, updateRateMs);
+        public bool WriteCommand(string commandXml)                                      => _opcDaClient.WriteCommand(commandXml);
+        public void Dispose()                                                            => _opcDaClient.Dispose();
     }
 }

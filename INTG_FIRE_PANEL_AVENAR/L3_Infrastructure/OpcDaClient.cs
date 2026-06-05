@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace INTG_OPC
@@ -14,7 +15,7 @@ namespace INTG_OPC
     /// Gestiona el ciclo de vida de una conexión OPC DA Classic:
     /// conexión, suscripción a ítems y desconexión limpia.
     /// </summary>
-    public class OpcClient : IDisposable
+    public class OpcDaClient : IDisposable
     {
         #region Campos y Constructor
 
@@ -28,11 +29,10 @@ namespace INTG_OPC
         private static readonly BrowseFilters FilterItem   = new BrowseFilters { BrowseFilter = browseFilter.item };
 
         public bool IsConnected => _opcDaServer != null && _opcDaServer.IsConnected;
-        public Opc.Da.Server Server => _opcDaServer;
 
         public event Action<ItemValueResult[]> PanelChanged;
 
-        public OpcClient() { }
+        public OpcDaClient() { }
 
         #endregion
 
@@ -83,22 +83,12 @@ namespace INTG_OPC
         /// </summary>
         /// <param name="opcServerUrl">Ej: opcda://localhost/BOSCH.OpcDaServer.1</param>
         public bool Connect(string opcServerUrl)
-        {
-            ValidateServerUrl(opcServerUrl);
-            Console.WriteLine($"[OPC_Client]\tConectando a: {opcServerUrl}");
-
+        {    
             try
             {
+                ValidateServerUrl(opcServerUrl);
                 CreateAndConnectServer(opcServerUrl);
-
-                if (!_opcDaServer.IsConnected)
-                {
-                    Console.WriteLine("[OPC_Client]\tError: el servidor no reporta conexión activa.");
-                    return false;
-                }
-
                 _serverUrl = opcServerUrl;
-                Console.WriteLine("[OPC_Client]\tConexión establecida correctamente.");
                 return true;
             }
             catch (ConnectFailedException ex)
@@ -123,10 +113,16 @@ namespace INTG_OPC
 
         private void CreateAndConnectServer(string opcServerUrl)
         {
+            Console.WriteLine($"[OPC_Client]\tConectando a: {opcServerUrl}");
             var url     = new Opc.URL(opcServerUrl);
             var factory = new OpcCom.Factory();
             _opcDaServer = new Opc.Da.Server(factory, null);
             _opcDaServer.Connect(url, null);
+
+            if (!_opcDaServer.IsConnected)
+                throw new InvalidOperationException("El servidor no reporta conexión activa.");
+
+            Console.WriteLine("[OPC_Client]\tConexión establecida correctamente.");
         }
 
         /// <summary>
@@ -476,6 +472,458 @@ namespace INTG_OPC
                 Console.WriteLine($"[OPC_Client]\tError al enviar comando: {ex.Message}");
                 return false;
             }
+        }
+
+        #endregion
+
+        #region Browse
+
+        public BrowseElement[] BrowseLevel(ItemIdentifier parentId)
+        {
+            try
+            {
+                BrowsePosition pos;
+                return _opcDaServer.Browse(parentId, FilterAll, out pos);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC_Client]\tBrowse error en '{parentId?.ItemName ?? "root"}': {ex.Message}");
+                return null;
+            }
+        }
+
+        public ItemPropertyCollection GetItemProperties(string itemName)
+        {
+            try
+            {
+                var results = _opcDaServer.GetProperties(
+                    new[] { new ItemIdentifier(itemName) }, null, true);
+                return results != null && results.Length > 0 ? results[0] : null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC_Client]\tGetProperties error para '{itemName}': {ex.Message}");
+                return null;
+            }
+        }
+
+        #endregion
+
+        #region BuildTree
+
+        /// <summary>
+        /// Construye el árbol OPC completo navegando el servidor y retorna la estructura
+        /// en memoria lista para serializar a JSON.
+        /// </summary>
+        public Dictionary<string, object> BuildTree(string prefix, string serverUrl, string idUinP)
+        {
+            return new Dictionary<string, object>
+            {
+                { "name",        "root" },
+                { "elementType", "branch" },
+                { "itemName",    "" },
+                { "securosId",   "" },
+                { "server",      serverUrl },
+                { "prefix",      prefix },
+                { "idUinP",      idUinP },
+                { "children",    BuildChildNodes(null, prefix) }
+            };
+        }
+
+        private List<object> BuildChildNodes(ItemIdentifier parentId, string prefix, int depth = 0,
+                                             string parentIdStr = "",
+                                             Dictionary<string, string> inheritedFields = null)
+        {
+            var elements = BrowseLevelSafe(parentId);
+
+            if (elements == null || elements.Length == 0)
+                return new List<object>();
+
+            LogBrowsedElements(elements);
+
+            var merged      = MergeElementsByName(elements);
+            var treeOrdered = OrderElementsForTraversal(merged);
+
+            var treeNodesAtCurrentLevel = new List<object>();
+            int childCounter = 1;
+
+            foreach (var element in treeOrdered)
+            {
+                string nodeId = ComputeNodeId(element.Name, depth, parentIdStr, ref childCounter);
+                var    node   = BuildNodeEntry(element, nodeId, depth, parentIdStr, prefix, inheritedFields);
+                treeNodesAtCurrentLevel.Add(node);
+            }
+
+            return treeNodesAtCurrentLevel;
+        }
+
+        private BrowseElement[] BrowseLevelSafe(ItemIdentifier parentId)
+        {
+            try
+            {
+                return BrowseLevel(parentId);
+            }
+            catch (Exception ex)
+            {
+                var nodeName = parentId?.ItemName ?? "root";
+                Console.WriteLine($"[OPC_Client]\tBrowse error at '{nodeName}': {ex.Message}");
+                return null;
+            }
+        }
+
+        private static void LogBrowsedElements(BrowseElement[] elements)
+        {
+            foreach (var e in elements)
+                Console.WriteLine($"[OPC_Client]\tName='{e.Name}' ItemName='{e.ItemName}' HasChildren={e.HasChildren} IsItem={e.IsItem}");
+        }
+
+        private Dictionary<string, object> BuildNodeEntry(MergedElement element, string nodeId,
+                                                          int depth, string parentIdStr,
+                                                          string prefix,
+                                                          Dictionary<string, string> inheritedFields = null)
+        {
+            var elementType       = DetermineElementType(element);
+            var itemName          = ResolveItemName(element);
+            var integrationFields = ComputeIntegrationFields(element.Name, elementType, depth, parentIdStr, prefix, inheritedFields);
+            var securosParentId   = ResolveSecurosParentId(element, integrationFields);
+            var node              = CreateBaseNodeFields(element.Name, elementType, itemName, nodeId, securosParentId);
+
+            AttachIntegrationFields(node, integrationFields);
+            if (depth == 0 && elementType == "branch")
+                node["objType"] = prefix + StripDigits(Normalize(element.Name));
+            AttachItemPropertiesIfItem(node, element, itemName);
+            AttachChildrenIfBranch(node, element, depth, nodeId, prefix, integrationFields);
+
+            return node;
+        }
+
+        private static string ResolveSecurosParentId(MergedElement element, Dictionary<string, string> integrationFields)
+        {
+            if (!element.IsItem || integrationFields == null) return null;
+            string panelId;
+            integrationFields.TryGetValue("panelId", out panelId);
+            return panelId;
+        }
+
+        private Dictionary<string, string> ComputeIntegrationFields(string name, string elementType,
+                                                                     int depth, string parentIdStr,
+                                                                     string prefix,
+                                                                     Dictionary<string, string> inherited)
+        {
+            if (string.IsNullOrEmpty(parentIdStr)) return null;
+            if (depth == 1)                        return BuildOwnIntegrationFields(name, elementType, parentIdStr, prefix);
+            if (depth > 1 && inherited != null)    return inherited;
+            return null;
+        }
+
+        private static Dictionary<string, string> BuildOwnIntegrationFields(string name, string elementType,
+                                                                             string panelId, string prefix)
+        {
+            bool isBranch = elementType == "branch" || elementType == "branch|item";
+            var fields = new Dictionary<string, string>
+            {
+                ["objType"]  = prefix + Normalize(name),
+                ["typeName"] = name,
+                ["panelId"]  = panelId
+            };
+            if (isBranch) fields["groupName"] = name;
+            return fields;
+        }
+
+        private static void AttachIntegrationFields(Dictionary<string, object> node,
+                                                    Dictionary<string, string> fields)
+        {
+            if (fields == null) return;
+            foreach (var kv in fields)
+            {
+                if (kv.Key == "panelId") continue;
+                node[kv.Key] = kv.Value;
+            }
+        }
+
+        private static string DetermineElementType(MergedElement element)
+        {
+            if (element.HasChildren && element.IsItem) return "branch|item";
+            if (element.HasChildren)                   return "branch";
+            return "item";
+        }
+
+        private static string ResolveItemName(MergedElement element) =>
+            element.ItemItemName ?? element.BranchItemName ?? "";
+
+        private static Dictionary<string, object> CreateBaseNodeFields(string name, string elementType,
+                                                                        string itemName, string nodeId,
+                                                                        string securosParentId = null)
+        {
+            var fields = new Dictionary<string, object>
+            {
+                { "name",        name },
+                { "elementType", elementType },
+                { "itemName",    itemName },
+                { "securosId",   nodeId }
+            };
+            if (!string.IsNullOrEmpty(securosParentId))
+                fields["securosParentId"] = securosParentId;
+            return fields;
+        }
+
+        private void AttachItemPropertiesIfItem(Dictionary<string, object> node,
+                                                MergedElement element, string itemName)
+        {
+            if (!element.IsItem) return;
+
+            var props          = GetItemPropertiesAsList(itemName);
+            node["properties"] = props;
+            node["commands"]   = LookupCommands(props);
+        }
+
+        private void AttachChildrenIfBranch(Dictionary<string, object> node,
+                                            MergedElement element, int depth, string nodeId,
+                                            string prefix,
+                                            Dictionary<string, string> integrationFields = null)
+        {
+            if (!element.HasChildren)
+            {
+                node["hasItemChildren"] = false;
+                return;
+            }
+
+            var childParentId       = new ItemIdentifier(element.BranchItemName ?? element.ItemItemName);
+            var children            = BuildChildNodes(childParentId, prefix, depth + 1, nodeId, integrationFields);
+            node["hasItemChildren"] = HasDirectItemChildren(children);
+            node["children"]        = children;
+        }
+
+        private static bool HasDirectItemChildren(List<object> children) =>
+            children.Cast<Dictionary<string, object>>()
+                    .Any(c => { var et = (string)c["elementType"]; return et == "item" || et == "branch|item"; });
+
+        private static List<MergedElement> MergeElementsByName(BrowseElement[] elements)
+        {
+            var mergedList  = new List<MergedElement>();
+            var nameToIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var elem in elements)
+            {
+                int idx;
+                if (nameToIndex.TryGetValue(elem.Name, out idx))
+                    UpdateExistingMergedElement(mergedList[idx], elem);
+                else
+                    AddNewMergedElement(mergedList, nameToIndex, elem);
+            }
+
+            return mergedList;
+        }
+
+        private static void UpdateExistingMergedElement(MergedElement existing, BrowseElement elem)
+        {
+            if (elem.HasChildren) { existing.HasChildren = true; existing.BranchItemName = elem.ItemName; }
+            if (elem.IsItem)      { existing.IsItem = true;      existing.ItemItemName   = elem.ItemName; }
+        }
+
+        private static void AddNewMergedElement(List<MergedElement> mergedList,
+                                                Dictionary<string, int> nameToIndex,
+                                                BrowseElement elem)
+        {
+            var m = new MergedElement { Name = elem.Name };
+            if (elem.HasChildren) { m.HasChildren = true; m.BranchItemName = elem.ItemName; }
+            if (elem.IsItem)      { m.IsItem = true;      m.ItemItemName   = elem.ItemName; }
+            nameToIndex[elem.Name] = mergedList.Count;
+            mergedList.Add(m);
+        }
+
+        private static IEnumerable<MergedElement> OrderElementsForTraversal(List<MergedElement> merged) =>
+            merged.Where(e => e.IsItem && !e.HasChildren)
+                  .Concat(merged.Where(e => e.HasChildren));
+
+        private static string ComputeNodeId(string name, int depth, string parentIdStr,
+                                            ref int childCounter)
+        {
+            if (depth == 0) return ComputePanelNodeId(name);
+            if (depth == 1) return ComputeTypeNodeId(parentIdStr, ref childCounter);
+            if (depth <= 3) return ComputeInstanceNodeId(name, parentIdStr);
+            return "";
+        }
+
+        private static string ComputePanelNodeId(string name) =>
+            ExtractLastTwoNumbers(name);
+
+        private static string ExtractLastTwoNumbers(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "";
+            var matches = Regex.Matches(name, @"\d+");
+            if (matches.Count == 0) return "";
+            if (matches.Count == 1) return matches[0].Value;
+            return matches[matches.Count - 2].Value + "-" + matches[matches.Count - 1].Value;
+        }
+
+        private static string ComputeTypeNodeId(string parentIdStr, ref int childCounter)
+        {
+            var id = string.IsNullOrEmpty(parentIdStr) ? "" : parentIdStr + "." + childCounter;
+            childCounter++;
+            return id;
+        }
+
+        private static string ComputeInstanceNodeId(string name, string parentIdStr) =>
+            IsNumeric(name) && !string.IsNullOrEmpty(parentIdStr)
+                ? parentIdStr + "." + name
+                : "";
+
+        public List<object> GetItemPropertiesAsList(string itemName)
+        {
+            if (string.IsNullOrEmpty(itemName))
+                return new List<object>();
+
+            try
+            {
+                var collection = GetItemProperties(itemName);
+
+                if (collection == null)
+                    return new List<object>();
+
+                var props = new List<object>();
+                foreach (ItemProperty prop in collection)
+                {
+                    var raw   = prop.Value != null ? prop.Value.ToString() : string.Empty;
+                    var entry = new Dictionary<string, object>
+                    {
+                        { "code",        prop.ID.Code },
+                        { "description", prop.Description ?? prop.ID.Name?.Name ?? string.Empty }
+                    };
+
+                    if (raw.TrimStart().StartsWith("<"))
+                    {
+                        var commands = new Dictionary<string, string>();
+                        try
+                        {
+                            var doc = XDocument.Parse(raw);
+                            XNamespace ns = "file:///S3K/Proxyverwalter";
+                            commands = doc.Descendants(ns + "Command")
+                                .ToDictionary(
+                                    e => e.Attribute("Name")?.Value ?? "(unnamed)",
+                                    e => e.ToString());
+                        }
+                        catch { }
+                        entry["commands"] = commands;
+                    }
+                    else
+                    {
+                        entry["value"] = raw;
+                    }
+
+                    props.Add(entry);
+                }
+                return props;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC_Client]\tGetProperties error for '{itemName}': " + ex.Message);
+                return new List<object>();
+            }
+        }
+
+        private Dictionary<string, string> LookupCommands(List<object> properties)
+        {
+            var detectorProp = properties
+                .Cast<Dictionary<string, object>>()
+                .FirstOrDefault(p => string.Equals(
+                    p["description"]?.ToString(), "DetectorTypeID",
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (detectorProp == null
+                || !int.TryParse(detectorProp["value"]?.ToString(), out int typeId)
+                || typeId <= 0)
+                return new Dictionary<string, string>();
+
+            var cmdCache = BuildCmdCache();
+
+            Dictionary<string, string> commands;
+            return cmdCache.TryGetValue(typeId, out commands)
+                ? commands
+                : new Dictionary<string, string>();
+        }
+
+        private Dictionary<int, Dictionary<string, string>> BuildCmdCache()
+        {
+            var cache = new Dictionary<int, Dictionary<string, string>>();
+            foreach (var prop in FetchCmdPropertiesFromServer())
+                if (prop.Commands != null)
+                    cache[prop.Code] = prop.Commands;
+            return cache;
+        }
+
+        private List<CmdPropertyEntry> FetchCmdPropertiesFromServer()
+        {
+            try
+            {
+                var collection = GetItemProperties("CMD");
+                if (collection == null) return new List<CmdPropertyEntry>();
+
+                var props = new List<CmdPropertyEntry>();
+                foreach (ItemProperty prop in collection)
+                {
+                    if (!prop.ResultID.Succeeded()) continue;
+
+                    var entry = new CmdPropertyEntry { Code = prop.ID.Code };
+                    var raw   = prop.Value?.ToString() ?? string.Empty;
+
+                    if (raw.TrimStart().StartsWith("<"))
+                    {
+                        entry.Commands = new Dictionary<string, string>();
+                        try
+                        {
+                            var doc = XDocument.Parse(raw);
+                            XNamespace ns = "file:///S3K/Proxyverwalter";
+                            entry.Commands = doc.Descendants(ns + "Command")
+                                .ToDictionary(
+                                    e => e.Attribute("Name")?.Value ?? "(unnamed)",
+                                    e => e.ToString());
+                        }
+                        catch { }
+                    }
+                    props.Add(entry);
+                }
+                return props;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OPC_Client]\tError leyendo CMD properties: {ex.Message}");
+                return new List<CmdPropertyEntry>();
+            }
+        }
+
+        private class MergedElement
+        {
+            public string Name           { get; set; }
+            public bool   HasChildren    { get; set; }
+            public bool   IsItem         { get; set; }
+            public string BranchItemName { get; set; }
+            public string ItemItemName   { get; set; }
+        }
+
+        private class CmdPropertyEntry
+        {
+            public int    Code     { get; set; }
+            public Dictionary<string, string> Commands { get; set; }
+        }
+
+        private static string Normalize(string value) =>
+            value?.ToUpperInvariant().Replace(' ', '_') ?? string.Empty;
+
+        private static bool IsNumeric(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return false;
+            foreach (char c in value)
+                if (!char.IsDigit(c)) return false;
+            return true;
+        }
+
+        private static string StripDigits(string value)
+        {
+            var sb = new StringBuilder();
+            foreach (char c in value)
+                if (!char.IsDigit(c)) sb.Append(c);
+            return sb.ToString().Trim(' ', '-', '_');
         }
 
         #endregion

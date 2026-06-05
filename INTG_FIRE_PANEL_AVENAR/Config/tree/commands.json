@@ -1,17 +1,11 @@
 {
-  "createdAt": "2026-06-03T19:15:04",
+  "createdAt": "2026-06-04T13:32:01",
   "server": "opcda://localhost/Bosch.FPA5000OpcServer/{075bbaaf-6666-1661-bbaa-faae77bb7101}",
   "cmd": [
     { "code": 1, "description": "Item Canonical DataType", "value": "System.String" },
-    {
-      "code": 2,
-      "description": "Item Value",
-      "commands": {
-        "RESET": "<nsPV:Command Name=\"RESET\" Anzeigename=\"Reiniciar\" Description=\"Reiniciar\" OPCServerKlasse=\"MagicPanel OPC Server\" xmlns:nsPV=\"file:///S3K/Proxyverwalter\" Sender=\"BIS\" Adresse=\"Fire Panel 1-1.Detector.1.1\" />"
-      }
-    },
+    { "code": 2, "description": "Item Value", "value": "" },
     { "code": 3, "description": "Item Quality", "value": "good" },
-    { "code": 4, "description": "Item Timestamp", "value": "6/1/2026 12:52:25 PM" },
+    { "code": 4, "description": "Item Timestamp", "value": "6/4/2026 9:54:31 AM" },
     { "code": 5, "description": "Item Access Rights", "value": "readWritable" },
     { "code": 6, "description": "Server Scan Rate", "value": "100" },
     {

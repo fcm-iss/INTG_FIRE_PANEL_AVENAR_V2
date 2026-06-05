@@ -1,7 +1,6 @@
 using INTG_FIRE_PANEL_AVENAR.Application;
 using INTG_FIRE_PANEL_AVENAR.Domain;
 using INTG_FIRE_PANEL_AVENAR.Infrastructure;
-using ISS.OPCMonitor;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -34,25 +33,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             }
         }
 
-        private static void RunCreateSecurOsObjectsFlow()
-        {
-            var treeFilePath = FindExistingTreeFile();
-            if (string.IsNullOrEmpty(treeFilePath)) return;
-
-            var ddiPrefix = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
-            try
-            {
-                using (var securos = SecurOsAdapter.Connect())
-                    securos.CreateObjectsInSecurOs(treeFilePath, ddiPrefix);
-
-                Console.WriteLine("[APP]\t\tObjetos creados exitosamente.");
-            }
-            catch (Exception ex)
-            {
-                LogError($"Error al crear objetos en SecurOS: {ex.Message}");
-            }
-        }
-
+        #region Integration Flow
         private static void RunIntegrationFlow(OpcAdapter opc)
         {
             var connectedUrl = DiscoverAndConnect(opc);
@@ -92,12 +73,6 @@ namespace INTG_FIRE_PANEL_AVENAR
             }
         }
 
-        private static void FlushConsoleInputBuffer()
-        {
-            while (Console.KeyAvailable)
-                Console.ReadKey(true);
-        }
-
         private static void WaitForSecurOsRestart()
         {
             const int DelaySeconds = 30;
@@ -123,7 +98,30 @@ namespace INTG_FIRE_PANEL_AVENAR
                 LogError($"Error al crear objetos en SecurOS: {ex.Message}");
             }
         }
+        #endregion
 
+        #region Create SecurOs Objects Flow
+        private static void RunCreateSecurOsObjectsFlow()
+        {
+            var treeFilePath = FindExistingTreeFile();
+            if (string.IsNullOrEmpty(treeFilePath)) return;
+
+            var ddiPrefix = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
+            try
+            {
+                using (var securos = SecurOsAdapter.Connect())
+                    securos.CreateObjectsInSecurOs(treeFilePath, ddiPrefix);
+
+                Console.WriteLine("[APP]\t\tObjetos creados exitosamente.");
+            }
+            catch (Exception ex)
+            {
+                LogError($"Error al crear objetos en SecurOS: {ex.Message}");
+            }
+        }
+        #endregion
+
+        #region Monitor Flow
         private static void RunMonitorFlow(OpcAdapter opc)
         {
             var exporterPath = FindExistingTreeFile();
@@ -137,7 +135,7 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         private static bool ConnectFromTreeFile(OpcAdapter opc, string exporterPath)
         {
-            var serverUrl = OpcIntegrationExporter.ReadServerUrlFromTreeJson(exporterPath);
+            var serverUrl = OpcTreeReader.ReadServerUrlFromTreeJson(exporterPath);
             if (string.IsNullOrEmpty(serverUrl))
             {
                 LogError("Campo 'server' no encontrado en OPCTree.json — el archivo fue generado con una versión anterior. Ejecute primero con --integration para regenerarlo.");
@@ -150,23 +148,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             }
             return true;
         }
-
-        private static void LogError(string message)
-        {
-            var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-            var line      = $"[{timestamp}] [ERROR] {message}";
-
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"[APP]\t\t{line}");
-            Console.ResetColor();
-
-            try
-            {
-                var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "error.log");
-                File.AppendAllText(logPath, line + Environment.NewLine);
-            }
-            catch { }
-        }
+        #endregion
 
         // ══════════════════════════════════════════════════════════════════
         // Exportación OPC
@@ -182,13 +164,6 @@ namespace INTG_FIRE_PANEL_AVENAR
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, configured));
         }
 
-        private static int ResolveUpdateRateMs()
-        {
-            var raw = ConfigurationManager.AppSettings["monitoring_update_rate_ms"];
-            int ms;
-            return int.TryParse(raw, out ms) && ms > 0 ? ms : 1000;
-        }
-
         private static string[] ResolveAllowedTypes()
         {
             var raw = ConfigurationManager.AppSettings["allowed_types"];
@@ -199,7 +174,7 @@ namespace INTG_FIRE_PANEL_AVENAR
         private static string ExportOpcFiles(OpcAdapter opc, string selectedUrl)
         {
             var ddiPrefix    = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
-            var exporter     = opc.CreateExporter(ddiPrefix, selectedUrl);
+            var exporter     = opc.BuildSecurOsFileExporter(ddiPrefix, selectedUrl);
             var baseDir      = ResolveOutputBaseDir();
             var allowedTypes = ResolveAllowedTypes();
             var prefixClean  = ddiPrefix.TrimEnd('_').ToLower();
@@ -258,36 +233,12 @@ namespace INTG_FIRE_PANEL_AVENAR
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
         }
-
         #endregion
 
         // ══════════════════════════════════════════════════════════════════
-        // Monitoreo
+        // Despliegue de archivos
         // ══════════════════════════════════════════════════════════════════
-        #region Monitoreo
-        private static bool ConfirmCreateIntegrationFiles()
-        {
-            Console.WriteLine("\n==================================================");
-            Console.Write("[APP]\t\t¿Desea generar los archivos de integración? (s/n): ");
-            var answer = Console.ReadLine()?.Trim() ?? "";
-            return answer.Equals("s", StringComparison.OrdinalIgnoreCase)
-                || answer.Equals("si", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static string FindExistingTreeFile()
-        {
-            var path = Path.Combine(ResolveOutputBaseDir(), "Config", "tree", "OPCTree.json");
-
-            if (!File.Exists(path))
-            {
-                LogError("OPCTree.json no encontrado en Config\\tree\\. Ejecute primero con --integration para generarlo.");
-                return null;
-            }
-
-            Console.WriteLine("[APP]\t\tUsando archivo existente: Config\\tree\\OPCTree.json");
-            return path;
-        }
-
+        #region Despliegue de archivos
         private static bool ConfirmAndDeployIntegrationFiles()
         {
             Console.WriteLine("\n==================================================");
@@ -462,52 +413,23 @@ namespace INTG_FIRE_PANEL_AVENAR
                 return false;
             }
         }
+        #endregion
 
-        private static bool ConfirmStartMonitoring()
+        // ══════════════════════════════════════════════════════════════════
+        // Monitoreo
+        // ══════════════════════════════════════════════════════════════════
+        #region Monitoreo
+        private static int ResolveUpdateRateMs()
         {
-            Console.WriteLine("\n==================================================");
-
-            if (!VerifyServiceRunningBeforeMonitor()) return false;
-
-            Console.Write("[APP]\t\t¿Desea iniciar el monitoreo? (s/n): ");
-            var answer = Console.ReadLine()?.Trim() ?? "";
-            return answer.Equals("s", StringComparison.OrdinalIgnoreCase)
-                || answer.Equals("si", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool VerifyServiceRunningBeforeMonitor()
-        {
-            var serviceName = ConfigurationManager.AppSettings["securos_service_name"] ?? "";
-            if (string.IsNullOrWhiteSpace(serviceName)) return true;
-
-            using (var svc = FindServiceByDisplayName(serviceName))
-            {
-                if (svc == null)
-                {
-                    Console.WriteLine($"[APP]\t\tServicio '{serviceName}' no encontrado — se continúa sin verificar.");
-                    return true;
-                }
-
-                svc.Refresh();
-
-                if (svc.Status == ServiceControllerStatus.Running)
-                {
-                    Console.WriteLine($"[APP]\t\tServicio '{serviceName}': En ejecución.");
-                    return true;
-                }
-
-                Console.WriteLine($"[APP]\t\tAdvertencia: servicio '{serviceName}' no está en ejecución (estado: {svc.Status}).");
-                Console.Write("[APP]\t\t¿Desea continuar igualmente? (s/n): ");
-                var answer = Console.ReadLine()?.Trim() ?? "";
-                return answer.Equals("s", StringComparison.OrdinalIgnoreCase)
-                    || answer.Equals("si", StringComparison.OrdinalIgnoreCase);
-            }
+            var raw = ConfigurationManager.AppSettings["monitoring_update_rate_ms"];
+            int ms;
+            return int.TryParse(raw, out ms) && ms > 0 ? ms : 1000;
         }
 
         private static void StartMonitoring(IOpcGateway opc, ISecurOsGateway securOs, string exporterPath)
         {
-            var nodeIdMap      = OpcIntegrationExporter.BuildNodeIdMapFromTreeJson(exporterPath);
-            var commandNodeMap = OpcIntegrationExporter.BuildCommandNodeMapFromTreeJson(exporterPath);
+            var nodeIdMap      = OpcTreeReader.BuildNodeIdMapFromTreeJson(exporterPath);
+            var commandNodeMap = OpcTreeReader.BuildCommandNodeMapFromTreeJson(exporterPath);
 
             if (!opc.StartMonitoring(nodeIdMap, ResolveUpdateRateMs()))
             {
@@ -558,6 +480,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             };
         }
         #endregion
+
         // ══════════════════════════════════════════════════════════════════
         // Descubrimiento de Servidor OPC
         // ══════════════════════════════════════════════════════════════════
@@ -623,6 +546,48 @@ namespace INTG_FIRE_PANEL_AVENAR
             foreach (var url in servers)
                 Console.WriteLine($"{optionNumber++}- {url}");
             Console.Write("Seleccione una opción: ");
+        }
+        #endregion
+
+        // ══════════════════════════════════════════════════════════════════
+        // Utilidades
+        // ══════════════════════════════════════════════════════════════════
+        #region Utilidades
+        private static string FindExistingTreeFile()
+        {
+            var path = Path.Combine(ResolveOutputBaseDir(), "Config", "tree", "OPCTree.json");
+
+            if (!File.Exists(path))
+            {
+                LogError("OPCTree.json no encontrado en Config\\tree\\. Ejecute primero con --integration para generarlo.");
+                return null;
+            }
+
+            Console.WriteLine("[APP]\t\tUsando archivo existente: Config\\tree\\OPCTree.json");
+            return path;
+        }
+
+        private static void FlushConsoleInputBuffer()
+        {
+            while (Console.KeyAvailable)
+                Console.ReadKey(true);
+        }
+
+        private static void LogError(string message)
+        {
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            var line = $"[{timestamp}] [ERROR] {message}";
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[APP]\t\t{line}");
+            Console.ResetColor();
+
+            try
+            {
+                var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "error.log");
+                File.AppendAllText(logPath, line + Environment.NewLine);
+            }
+            catch { }
         }
         #endregion
     }

@@ -13,13 +13,13 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
             _securOs = securOs;
         }
 
-        public void Execute(ItemStateChanged[] changes)
+        public void Execute(ItemState[] changes)
         {
             foreach (var change in changes)
                 ProcessChange(change);
         }
 
-        private void ProcessChange(ItemStateChanged change)
+        private void ProcessChange(ItemState change)
         {
             if (!change.IsValid)
                 Console.WriteLine($"[PANEL]\t\tDesconectado — ítem: {change.ItemName}");
@@ -27,7 +27,7 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
                 ForwardToSecurOs(change);
         }
 
-        private void ForwardToSecurOs(ItemStateChanged change)
+        private void ForwardToSecurOs(ItemState change)
         {
             Console.WriteLine($"[PANEL]\t\tCambio: {change.ItemName} - {change.NodeId} = {change.Value}");
             _securOs.SendItemState(change.NodeId, change.Value);

@@ -6,7 +6,7 @@ namespace INTG_FIRE_PANEL_AVENAR.Domain
 {
     public interface IOpcGateway : IDisposable
     {
-        event Action<ItemStateChanged[]> StateChanged;
+        event Action<ItemState[]> StateChanged;
 
         IReadOnlyList<string> GetAvailableServers();
         bool Connect(string url);

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -78,15 +78,16 @@
   <ItemGroup>
     <Compile Include="App.cs" />
     <Compile Include="L2_Application\ExecuteSecurOsCommandUseCase.cs" />
+    <Compile Include="L2_Application\OpcTreeReader.cs" />
+    <Compile Include="L2_Application\SecurOsFileExporter.cs" />
     <Compile Include="L2_Application\SyncItemStateUseCase.cs" />
     <Compile Include="L1_Domain\IOpcGateway.cs" />
     <Compile Include="L1_Domain\ISecurOsGateway.cs" />
-    <Compile Include="L1_Domain\ValueObjects\ItemStateChanged.cs" />
+    <Compile Include="L1_Domain\ValueObjects\ItemState.cs" />
+    <Compile Include="L1_Domain\ValueObjects\SecurOsObjectDefinition.cs" />
     <Compile Include="L1_Domain\ValueObjects\SecurOsCommand.cs" />
     <Compile Include="L3_Infrastructure\OpcAdapter.cs" />
-    <Compile Include="L3_Infrastructure\ConsoleLogger.cs" />
     <Compile Include="L3_Infrastructure\OpcDaClient.cs" />
-    <Compile Include="L3_Infrastructure\OpcIntegrationExporter.cs" />
     <Compile Include="L3_Infrastructure\SecurOsAdapter.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

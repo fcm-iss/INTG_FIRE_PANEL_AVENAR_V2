@@ -1,6 +1,6 @@
+﻿using INTG_FIRE_PANEL_AVENAR.Application;
 using INTG_FIRE_PANEL_AVENAR.Domain;
 using INTG_FIRE_PANEL_AVENAR.Domain.ValueObjects;
-using ISS.OPCMonitor;
 using Opc.Da;
 using SecurosIIDK;
 using System;
@@ -232,7 +232,7 @@ namespace INTG_FIRE_PANEL_AVENAR
         public void CreateObjectsInSecurOs(string treeJsonPath, string ddiPrefix)
         {
             // 1. Extraer paneles e ítems desde OPCTree.json
-            var objectSpecs = OpcIntegrationExporter.ExtractObjectSpecsFromTree(treeJsonPath, ddiPrefix);
+            var objectSpecs = OpcTreeReader.ExtractObjectDefinitionsFromTree(treeJsonPath, ddiPrefix);
             Console.WriteLine($"[SecurOS]\tobjeto json capturado");
             // 2. Leer IDs de INTEGRATION capturados en el burst inicial de GET_CONFIG
             //    Si no llegó ninguno, usar idUinP del config como fallback
@@ -263,15 +263,15 @@ namespace INTG_FIRE_PANEL_AVENAR
             return next;
         }
 
-        private void CreatePanelObjects(List<OpcObjectSpec> specs, string integrationParentId)
+        private void CreatePanelObjects(List<SecurOsObjectDefinition> definitions, string integrationParentId)
         {
-            foreach (var spec in specs.FindAll(s => s.IsPanel))
+            foreach (var spec in definitions.FindAll(s => s.IsPanel))
                 SendCreateObject(spec.ObjType, spec.ObjId, spec.Name, integrationParentId);
         }
 
-        private void CreateItemObjects(List<OpcObjectSpec> specs)
+        private void CreateItemObjects(List<SecurOsObjectDefinition> definitions)
         {
-            foreach (var spec in specs.FindAll(s => !s.IsPanel))
+            foreach (var spec in definitions.FindAll(s => !s.IsPanel))
                 SendCreateObject(spec.ObjType, spec.ObjId, spec.Name, spec.ParentId);
         }
 

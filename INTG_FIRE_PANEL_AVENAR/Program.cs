@@ -4,7 +4,7 @@ namespace INTG_FIRE_PANEL_AVENAR
 {
     internal class Program
     {
-        [System.MTAThread]
+        [System.STAThread]
         static void Main(string[] args)
         {
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>

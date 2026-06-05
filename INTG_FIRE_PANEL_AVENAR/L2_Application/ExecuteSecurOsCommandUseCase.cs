@@ -8,11 +8,11 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
     public class ExecuteSecurOsCommandUseCase
     {
         private readonly Action<string> _enqueueWrite;
-        private readonly Dictionary<string, Tuple<string, Dictionary<string, string>>> _commandNodeMap;
+        private readonly Dictionary<string, (string itemName, Dictionary<string, string> commands)> _commandNodeMap;
 
         public ExecuteSecurOsCommandUseCase(
             Action<string> enqueueWrite,
-            Dictionary<string, Tuple<string, Dictionary<string, string>>> commandNodeMap)
+            Dictionary<string, (string itemName, Dictionary<string, string> commands)> commandNodeMap)
         {
             _enqueueWrite   = enqueueWrite;
             _commandNodeMap = commandNodeMap;
@@ -20,28 +20,21 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
 
         public void Execute(SecurOsCommand cmd)
         {
-            RouteToOpc(cmd);
-        }
+            var securosKey = $"{cmd.ObjType}|{cmd.Id}";
 
-        private void RouteToOpc(SecurOsCommand cmd)
-        {
-            var handle = $"{cmd.ObjType}|{cmd.Id}";
-
-            Tuple<string, Dictionary<string, string>> nodeInfo;
-            if (!_commandNodeMap.TryGetValue(handle, out nodeInfo))
+            if (!_commandNodeMap.TryGetValue(securosKey, out var node))
             {
-                Console.WriteLine($"[APP]\t\tNo se encontró elemento OPC para handle: {handle}");
+                Console.WriteLine($"[APP]\t\tNo se encontró elemento OPC para: {securosKey}");
                 return;
             }
 
-            string commandXml;
-            if (!nodeInfo.Item2.TryGetValue(cmd.EventName, out commandXml))
+            if (!node.commands.TryGetValue(cmd.EventName, out var commandXml))
             {
-                Console.WriteLine($"[APP]\t\tComando '{cmd.EventName}' no definido para ítem: {nodeInfo.Item1}");
+                Console.WriteLine($"[APP]\t\tComando '{cmd.EventName}' no definido para ítem: {node.itemName}");
                 return;
             }
 
-            _enqueueWrite(CompleteCommandXml(commandXml, nodeInfo.Item1));
+            _enqueueWrite(CompleteCommandXml(commandXml, node.itemName));
         }
 
         private static string CompleteCommandXml(string commandXml, string itemName)

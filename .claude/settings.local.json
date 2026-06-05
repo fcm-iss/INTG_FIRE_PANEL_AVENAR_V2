@@ -5,7 +5,8 @@
       "PowerShell(& \"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" \"C:\\\\ISS_WORKSPACE\\\\_LABS\\\\_OPC\\\\INTG_OPC_AVENAR_NET4_8\\\\INTG_OPC_AVENAR_NET4_5\\\\INTG_OPC_AVENAR_NET4_5.csproj\" /p:Configuration=Debug /nologo /verbosity:minimal 2>&1)",
       "PowerShell(& \"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" \"C:\\\\ISS_WORKSPACE\\\\_LABS\\\\_OPC\\\\INTG_OPC_AVENAR_NET4_8\\\\INTG_OPC_AVENAR_NET4_5\\\\INTG_OPC_AVENAR_NET4_5.csproj\" /p:Configuration=Debug /t:Build /v:minimal 2>&1)",
       "Bash(move \"INTG_OPC_AVENAR_NET4_5\" \"INTG_FIRE_PANEL_AVENAR\")",
-      "PowerShell(& \"C:\\\\Program Files \\(x86\\)\\\\Microsoft Visual Studio\\\\2022\\\\BuildTools\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" \"C:\\\\ISS_WORKSPACE\\\\SSA_INTG_BOSCH_AVENAR\\\\INTG_OPCAvenar_IIDKSecuros_V2.0\\\\INTG_FIRE_PANEL_AVENAR\\\\INTG_FIRE_PANEL_AVENAR.csproj\" /p:Configuration=Debug /v:quiet 2>&1)"
+      "PowerShell(& \"C:\\\\Program Files \\(x86\\)\\\\Microsoft Visual Studio\\\\2022\\\\BuildTools\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" \"C:\\\\ISS_WORKSPACE\\\\SSA_INTG_BOSCH_AVENAR\\\\INTG_OPCAvenar_IIDKSecuros_V2.0\\\\INTG_FIRE_PANEL_AVENAR\\\\INTG_FIRE_PANEL_AVENAR.csproj\" /p:Configuration=Debug /v:quiet 2>&1)",
+      "Bash(git *)"
     ]
   }
 }
