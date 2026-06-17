@@ -20,7 +20,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             var mode = Array.Exists(args, a => a == "--integration") ? AppMode.Integration
                      : Array.Exists(args, a => a == "--create-securos-objects") ? AppMode.CreateSecurOsObjects
                      : AppMode.Monitor;
-            //mode = AppMode.CreateSecurOsObjects;
+            //mode = AppMode.Integration;
 
             using (var opcManager = new OpcAdapter())
             {
