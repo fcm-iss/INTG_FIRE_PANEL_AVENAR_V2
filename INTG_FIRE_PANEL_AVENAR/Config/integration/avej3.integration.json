@@ -1,0 +1,61 @@
+{
+	"version": 1,
+	"reset_timeout": 60,
+	"structure":
+	[{
+		"parent": "INTEGRATION",
+		"type": "AVEJ3_FIRE_PANEL",
+		"children":
+		[{
+			"type": "AVEJ3_ERROR"
+		},{
+			"type": "AVEJ3_AUX_POWER"
+		},{
+			"type": "AVEJ3_BUZZER"
+		},{
+			"type": "AVEJ3_BYPASS_GROUP"
+		},{
+			"type": "AVEJ3_CAN_BUS"
+		},{
+			"type": "AVEJ3_COUPLER"
+		},{
+			"type": "AVEJ3_DETECTOR"
+		},{
+			"type": "AVEJ3_GROUND"
+		},{
+			"type": "AVEJ3_INPUT"
+		},{
+			"type": "AVEJ3_INPUT_GROUP"
+		},{
+			"type": "AVEJ3_ISOLATE_GROUP"
+		},{
+			"type": "AVEJ3_LOOP"
+		},{
+			"type": "AVEJ3_MAINS_POWER"
+		},{
+			"type": "AVEJ3_MODULE"
+		},{
+			"type": "AVEJ3_MONITORING"
+		},{
+			"type": "AVEJ3_NAC"
+		},{
+			"type": "AVEJ3_NET_ADDRESS"
+		},{
+			"type": "AVEJ3_NETWORK"
+		},{
+			"type": "AVEJ3_NETWORK_LINE"
+		},{
+			"type": "AVEJ3_NETWORK_NODE"
+		},{
+			"type": "AVEJ3_OUTPUT_GROUP"
+		},{
+			"type": "AVEJ3_PANEL"
+		},{
+			"type": "AVEJ3_RAIL_POWER"
+		},{
+			"type": "AVEJ3_TOPOLOGY"
+		},{
+			"type": "AVEJ3_WALKTEST_GROUP"
+		}]
+	}]
+}
