@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Integration generated files
+INTG_FIRE_PANEL_AVENAR/Config/integration/*.dbi
+INTG_FIRE_PANEL_AVENAR/Config/integration/*.ddi
+INTG_FIRE_PANEL_AVENAR/Config/integration/*.integration.json
