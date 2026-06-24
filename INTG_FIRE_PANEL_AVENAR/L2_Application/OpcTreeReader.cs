@@ -171,7 +171,7 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
                 {
                     var objType   = ReadStringField(child, "objType");
                     var securosId = ReadStringField(child, "securosId");
-                    var itemName  = ReadStringField(child, "itemName");
+                    var itemName  = ReadPropertyValue(child, 101) ?? ReadStringField(child, "itemName");
                     var parentId  = ReadStringField(child, "securosParentId");
                     if (!string.IsNullOrEmpty(objType) && !string.IsNullOrEmpty(securosId))
                         definitions.Add(new SecurOsObjectDefinition(objType, securosId, itemName, parentId));
@@ -223,6 +223,26 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
 
         private static string Normalize(string value) =>
             value?.ToUpperInvariant().Replace(' ', '_') ?? string.Empty;
+
+        private static string ReadPropertyValue(Dictionary<string, object> node, int code)
+        {
+            object propsObj;
+            if (!node.TryGetValue("properties", out propsObj)) return null;
+            var props = propsObj as System.Collections.ArrayList;
+            if (props == null) return null;
+            foreach (var prop in props)
+            {
+                var p = prop as Dictionary<string, object>;
+                if (p == null) continue;
+                object codeVal;
+                if (!p.TryGetValue("code", out codeVal)) continue;
+                int propCode;
+                if (!int.TryParse(codeVal?.ToString(), out propCode) || propCode != code) continue;
+                object valObj;
+                return p.TryGetValue("value", out valObj) ? valObj?.ToString() ?? "" : "";
+            }
+            return null;
+        }
 
         private static string StripDigits(string value)
         {
