@@ -366,3 +366,6 @@ FodyWeavers.xsd
 INTG_FIRE_PANEL_AVENAR/Config/integration/*.dbi
 INTG_FIRE_PANEL_AVENAR/Config/integration/*.ddi
 INTG_FIRE_PANEL_AVENAR/Config/integration/*.integration.json
+
+# Claude Code agent worktrees
+.claude/worktrees/
