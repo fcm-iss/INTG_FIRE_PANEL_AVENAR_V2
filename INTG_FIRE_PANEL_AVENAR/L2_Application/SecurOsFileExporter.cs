@@ -306,6 +306,7 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
             var typesWithGroup = typeInfos.Where(t => !string.IsNullOrEmpty(t.Item3)).Select(t => t.Item1).ToList();
             var opcEventRows   = BuildOpcStateEventRows(typesWithGroup, opcStates);
             var opcStateRows   = BuildOpcStateStateRows(typesWithGroup, opcStates);
+            var stateRuleRows  = BuildStateRuleRows(typesWithGroup, opcStates);
 
             int c1 = ComputeC1Width(types, cmdEvents);
             int c2 = Math.Max(27, typeInfos.Count > 0 ? typeInfos.Max(t => t.Item2.Length) + 2 : 27);
@@ -325,7 +326,7 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
             WriteReactSection(sb, cmdEvents, c1, c2, c3, c4, c5, c6);
             WriteStateSection(sb, opcStateRows, c1, cs2, cs3, c4, c5, cs6);
             WriteMarkerSection(sb);
-            WriteStateRuleSection(sb);
+            WriteStateRuleSection(sb, stateRuleRows, c1, cs2);
 
             File.WriteAllText(outputPath, sb.ToString(), new UTF8Encoding(false));
             Console.WriteLine("[OPC_Exporter]\t\tDDI file exported to: " + outputPath);
@@ -348,6 +349,16 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
             foreach (var t in types)
                 foreach (var s in opcStates)
                     result.Add(Tuple.Create(t, s.LzName, s.LzName, s.DescriptionEs));
+            return result;
+        }
+
+        private static List<Tuple<string, string>> BuildStateRuleRows(
+            List<string> types, List<OpcStateEntry> opcStates)
+        {
+            var result = new List<Tuple<string, string>>();
+            foreach (var t in types)
+                foreach (var s in opcStates)
+                    result.Add(Tuple.Create(t, s.LzName));
             return result;
         }
 
@@ -411,9 +422,12 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
             sb.AppendLine();
         }
 
-        private static void WriteStateRuleSection(StringBuilder sb)
+        private static void WriteStateRuleSection(StringBuilder sb,
+            List<Tuple<string, string>> stateRuleRows, int c1, int cs2)
         {
             sb.AppendLine("[STATE_RULE]");
+            foreach (var r in stateRuleRows)
+                sb.AppendLine(Col(r.Item1, c1) + "|" + Col(r.Item2, cs2) + "|" + Col("", cs2) + "|" + Col(r.Item2, cs2) + "|");
             sb.AppendLine();
         }
 
