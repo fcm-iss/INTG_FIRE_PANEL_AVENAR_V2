@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Web.Script.Serialization;
@@ -62,9 +63,31 @@ namespace INTG_FIRE_PANEL_AVENAR
             }
         }
 
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern bool SetDllDirectory(string lpPathName);
+
+        private static void ConfigureIidkDllSearchPath()
+        {
+            var iidkDllDirectory = ConfigurationManager.AppSettings["iidk_dll_directory"];
+            if (string.IsNullOrWhiteSpace(iidkDllDirectory))
+                return;
+
+            if (!Directory.Exists(iidkDllDirectory))
+            {
+                Console.WriteLine($"[SecurOS]\t\tiidk_dll_directory configurado no existe: {iidkDllDirectory}");
+                return;
+            }
+
+            if (SetDllDirectory(iidkDllDirectory))
+                Console.WriteLine($"[SecurOS]\t\tDirectorio de búsqueda de iidk.dll: {iidkDllDirectory}");
+            else
+                Console.WriteLine($"[SecurOS]\t\tNo se pudo establecer el directorio de búsqueda de iidk.dll: {iidkDllDirectory}");
+        }
+
         public static SecurOsAdapter Connect()
         {
             Console.WriteLine("[SecurOS]\t\tinicio de conexion...");
+            ConfigureIidkDllSearchPath();
             var host = ConfigurationManager.AppSettings["securos_host"] ?? "127.0.0.1";
             var port = ConfigurationManager.AppSettings["securos_port"] ?? "3000";
             var id   = ConfigurationManager.AppSettings["idUinP"]       ?? "1";
