@@ -43,8 +43,10 @@ namespace INTG_FIRE_PANEL_AVENAR.Infrastructure
             return new SecurOsFileExporter(tree);
         }
 
-        public IReadOnlyList<string> GetAvailableServers()                              => _opcDaClient.GetAvailableServers();
+        public IReadOnlyList<string> GetAvailableServers()                              => _opcDaClient.GetAvailableServers(ResolveOpcHost());
         public bool Connect(string url)                                                  => _opcDaClient.Connect(url);
+
+        private static string ResolveOpcHost() => ConfigurationManager.AppSettings["opc_host"] ?? "localhost";
         public bool StartMonitoring(Dictionary<string, string> nodeIdMap, int updateRateMs) => _opcDaClient.StartIntegrationMonitoring(nodeIdMap, updateRateMs);
         public bool WriteCommand(string commandXml)                                      => _opcDaClient.WriteCommand(commandXml);
         public void Dispose()                                                            => _opcDaClient.Dispose();
