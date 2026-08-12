@@ -2,6 +2,7 @@ using Opc;
 using Opc.Da;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -117,12 +118,28 @@ namespace INTG_OPC
             var url     = new Opc.URL(opcServerUrl);
             var factory = new OpcCom.Factory();
             _opcDaServer = new Opc.Da.Server(factory, null);
-            _opcDaServer.Connect(url, null);
+            _opcDaServer.Connect(url, BuildOpcConnectData());
 
             if (!_opcDaServer.IsConnected)
                 throw new InvalidOperationException("El servidor no reporta conexión activa.");
 
             Console.WriteLine("[OPC_Client]\tConexión establecida correctamente.");
+        }
+
+        /// <summary>
+        /// Arma las credenciales DCOM para la conexión OPC a partir de App.config.
+        /// Si opc_username no está configurado, devuelve null (usa la identidad del proceso).
+        /// </summary>
+        private static Opc.ConnectData BuildOpcConnectData()
+        {
+            var username = ConfigurationManager.AppSettings["opc_username"];
+            if (string.IsNullOrWhiteSpace(username))
+                return null;
+
+            var password = ConfigurationManager.AppSettings["opc_password"] ?? "";
+            var domain   = ConfigurationManager.AppSettings["opc_domain"]   ?? "";
+            var credentials = new System.Net.NetworkCredential(username, password, domain);
+            return new Opc.ConnectData(credentials);
         }
 
         /// <summary>

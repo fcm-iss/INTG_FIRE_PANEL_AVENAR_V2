@@ -1,3 +1,11 @@
 <Solution>
-  <Project Path="INTG_FIRE_PANEL_AVENAR/INTG_FIRE_PANEL_AVENAR.csproj" Id="df5c0a5b-112c-4e7f-813a-5baec97c7947" />
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="INTG_FIRE_PANEL_AVENAR/INTG_FIRE_PANEL_AVENAR.csproj" Id="df5c0a5b-112c-4e7f-813a-5baec97c7947">
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+  </Project>
 </Solution>
