@@ -549,25 +549,72 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
             var structure = BuildIntegrationStructureFromTree(rootNode, allowedChildTypes);
             var types     = new List<string>();
             CollectUniqueTypes(structure, types);
+            var fieldDefs = LoadDbiFieldDefinitions();
 
             var sb = new StringBuilder();
-
             foreach (var t in types)
-            {
-                sb.AppendLine("[OBJ_" + t + "]");
-                sb.AppendLine("id, CHAR, 16");
-                sb.AppendLine("name, CHAR, 60");
-                sb.AppendLine("parent_id, CHAR, 60");
-                sb.AppendLine("flags, INTEGER");
-                sb.AppendLine("camera_name, TEXT");
-                sb.AppendLine("camera_id, CHAR, 60");
-                sb.AppendLine("priority, CHAR, 60");
-                sb.AppendLine();
-            }
+                WriteDbiObjectSection(sb, t, fieldDefs);
 
             File.WriteAllText(outputPath, sb.ToString(), new UTF8Encoding(false));
             Console.WriteLine("[OPC_Exporter]\t\tDBI file exported to: " + outputPath);
         }
+
+        private static void WriteDbiObjectSection(StringBuilder sb, string type, List<DbiFieldDefinition> fields)
+        {
+            sb.AppendLine("[OBJ_" + type + "]");
+            foreach (var field in fields)
+                sb.AppendLine(FormatDbiFieldLine(field));
+            sb.AppendLine();
+        }
+
+        private static string FormatDbiFieldLine(DbiFieldDefinition field) =>
+            field.Length.HasValue
+                ? $"{field.Name}, {field.Type}, {field.Length.Value}"
+                : $"{field.Name}, {field.Type}";
+
+        private static List<DbiFieldDefinition> LoadDbiFieldDefinitions()
+        {
+            var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "dbi_fields.json");
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("[OPC_Exporter]\t\tdbi_fields.json no encontrado en Config\\, usando valores por defecto.");
+                return DefaultDbiFieldDefinitions();
+            }
+            var raw = new JavaScriptSerializer().Deserialize<List<Dictionary<string, object>>>(
+                File.ReadAllText(path, new UTF8Encoding(false)));
+            return ParseDbiFieldDefinitions(raw);
+        }
+
+        private static List<DbiFieldDefinition> ParseDbiFieldDefinitions(List<Dictionary<string, object>> raw)
+        {
+            var result = new List<DbiFieldDefinition>();
+            foreach (var d in raw)
+            {
+                object nameObj, typeObj, lengthObj;
+                d.TryGetValue("name",   out nameObj);
+                d.TryGetValue("type",   out typeObj);
+                d.TryGetValue("length", out lengthObj);
+
+                result.Add(new DbiFieldDefinition
+                {
+                    Name   = nameObj?.ToString() ?? "",
+                    Type   = typeObj?.ToString() ?? "",
+                    Length = lengthObj is int lengthInt ? (int?)lengthInt : null
+                });
+            }
+            return result;
+        }
+
+        private static List<DbiFieldDefinition> DefaultDbiFieldDefinitions() => new List<DbiFieldDefinition>
+        {
+            new DbiFieldDefinition { Name = "id",          Type = "CHAR",    Length = 16 },
+            new DbiFieldDefinition { Name = "name",        Type = "CHAR",    Length = 60 },
+            new DbiFieldDefinition { Name = "parent_id",   Type = "CHAR",    Length = 60 },
+            new DbiFieldDefinition { Name = "flags",       Type = "INTEGER" },
+            new DbiFieldDefinition { Name = "camera_name", Type = "TEXT" },
+            new DbiFieldDefinition { Name = "camera_id",   Type = "CHAR",    Length = 60 },
+            new DbiFieldDefinition { Name = "priority",    Type = "CHAR",    Length = 60 }
+        };
 
         private static void CollectUniqueTypes(List<object> items, List<string> types)
         {
@@ -618,6 +665,13 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
                 result.Add(new OpcStateEntry { LzName = lzName, DescriptionEs = desc?.ToString() ?? "" });
             }
             return result;
+        }
+
+        private sealed class DbiFieldDefinition
+        {
+            public string Name   { get; set; }
+            public string Type   { get; set; }
+            public int?   Length { get; set; }
         }
 
         private sealed class CmdProperty

@@ -118,6 +118,9 @@
     <Content Include="Config\opc_states.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Config\dbi_fields.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="log4cxx.properties">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

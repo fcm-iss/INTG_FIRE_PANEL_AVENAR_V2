@@ -1,0 +1,9 @@
+[
+  { "name": "id",          "type": "CHAR",    "length": 16 },
+  { "name": "name",        "type": "CHAR",    "length": 100 },
+  { "name": "parent_id",   "type": "CHAR",    "length": 60 },
+  { "name": "flags",       "type": "INTEGER" },
+  { "name": "camera_name", "type": "TEXT" },
+  { "name": "camera_id",   "type": "CHAR",    "length": 60 },
+  { "name": "priority",    "type": "CHAR",    "length": 60 }
+]
