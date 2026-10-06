@@ -1,0 +1,27 @@
+[OBJ_TESTFP_FIRE_PANEL]
+id, CHAR, 16
+name, CHAR, 100
+parent_id, CHAR, 60
+flags, INTEGER
+camera_name, TEXT
+camera_id, CHAR, 60
+priority, CHAR, 60
+
+[OBJ_TESTFP_DETECTOR]
+id, CHAR, 16
+name, CHAR, 100
+parent_id, CHAR, 60
+flags, INTEGER
+camera_name, TEXT
+camera_id, CHAR, 60
+priority, CHAR, 60
+
+[OBJ_TESTFP_NAC]
+id, CHAR, 16
+name, CHAR, 100
+parent_id, CHAR, 60
+flags, INTEGER
+camera_name, TEXT
+camera_id, CHAR, 60
+priority, CHAR, 60
+

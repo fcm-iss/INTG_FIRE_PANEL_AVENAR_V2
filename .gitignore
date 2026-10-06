@@ -363,9 +363,9 @@ MigrationBackup/
 FodyWeavers.xsd
 
 # Integration generated files
-INTG_FIRE_PANEL_AVENAR/Config/integration/*.dbi
-INTG_FIRE_PANEL_AVENAR/Config/integration/*.ddi
-INTG_FIRE_PANEL_AVENAR/Config/integration/*.integration.json
+# (se generan al correr --integration; hay ejemplos versionados en Config.example/)
+INTG_FIRE_PANEL_AVENAR/Config/integration/
+INTG_FIRE_PANEL_AVENAR/Config/tree/
 
 # Claude Code agent worktrees
 .claude/worktrees/

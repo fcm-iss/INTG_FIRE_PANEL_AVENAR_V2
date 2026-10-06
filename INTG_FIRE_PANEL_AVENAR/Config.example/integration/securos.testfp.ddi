@@ -1,0 +1,609 @@
+[OBJTYPE]
+TESTFP_FIRE_PANEL     |TESTFP Fire Panel          |                           |
+TESTFP_DETECTOR       |TESTFP Detector            |TESTFP Detector            |
+TESTFP_NAC            |TESTFP NAC                 |TESTFP NAC                 |
+
+[EVENT]
+TESTFP_DETECTOR       |BYPASS_ON                  |                           |Anular un detector                         |                                           |
+TESTFP_DETECTOR       |ALTERSET_OFF               |                           |Alternar ajuste/Desactivado                |                                           |
+TESTFP_DETECTOR       |ACK                        |                           |Reconocer                                  |                                           |
+TESTFP_DETECTOR       |RESET                      |                           |Reiniciar                                  |                                           |
+TESTFP_DETECTOR       |BYPASS_OFF                 |                           |Sin anulación de detector                  |                                           |
+TESTFP_DETECTOR       |ISOLATE_ON                 |                           |Aislar un dispositivo                      |                                           |
+TESTFP_DETECTOR       |ISOLATE_OFF                |                           |Sin aislado de dispositivo                 |                                           |
+TESTFP_DETECTOR       |WALKTEST_ON                |                           |Modo de prueba/Activado                    |                                           |
+TESTFP_DETECTOR       |WALKTEST_OFF               |                           |Modo de prueba/Apagado                     |                                           |
+TESTFP_DETECTOR       |ALTERSET_ON                |                           |Alternar ajuste/Activado                   |                                           |
+TESTFP_NAC            |BYPASS_ON                  |                           |Anular un detector                         |                                           |
+TESTFP_NAC            |ACK                        |                           |Reconocer                                  |                                           |
+TESTFP_NAC            |RESET                      |                           |Reiniciar                                  |                                           |
+TESTFP_NAC            |BYPASS_OFF                 |                           |Sin anulación de detector                  |                                           |
+TESTFP_NAC            |ISOLATE_ON                 |                           |Aislar un dispositivo                      |                                           |
+TESTFP_NAC            |ISOLATE_OFF                |                           |Sin aislado de dispositivo                 |                                           |
+TESTFP_NAC            |ACTIVATE_ON                |                           |Activar salida/Activado                    |                                           |
+TESTFP_NAC            |ACTIVATE_OFF               |                           |Activar salida/Desactivado                 |                                           |
+TESTFP_DETECTOR       |FG                         |                           |Zona Perdida                               |                                           |
+TESTFP_DETECTOR       |MAD                        |                           |Enmascaramiento de Detector                |                                           |
+TESTFP_DETECTOR       |ABL                        |                           |Desvanecimiento/Omision                    |                                           |
+TESTFP_DETECTOR       |ABS                        |                           |Zona Apagada                               |                                           |
+TESTFP_DETECTOR       |TST                        |                           |Prueba de Detector                         |                                           |
+TESTFP_DETECTOR       |GE                         |                           |Espera/Control Apagado                     |                                           |
+TESTFP_DETECTOR       |G8                         |                           |Falla de Componente Central                |                                           |
+TESTFP_DETECTOR       |STE                        |                           |Control Encendido                          |                                           |
+TESTFP_DETECTOR       |ES                         |                           |Falla a Tierra                             |                                           |
+TESTFP_DETECTOR       |K4                         |                           |Criterio -4                                |                                           |
+TESTFP_DETECTOR       |K3                         |                           |Criterio -3                                |                                           |
+TESTFP_DETECTOR       |K2                         |                           |Criterio -2                                |                                           |
+TESTFP_DETECTOR       |G0                         |                           |Falla Generica                             |                                           |
+TESTFP_DETECTOR       |H1                         |                           |Alarma de Emergencia                       |                                           |
+TESTFP_DETECTOR       |F3                         |                           |Alarma Incendio Interna                    |                                           |
+TESTFP_DETECTOR       |F2                         |                           |Prealarma de Incendio                      |                                           |
+TESTFP_DETECTOR       |F1                         |                           |Alarma Incendio Externa (Trans. Urgente)   |                                           |
+TESTFP_DETECTOR       |A6                         |                           |Disparo Desarmado                          |                                           |
+TESTFP_DETECTOR       |A5                         |                           |Alarma Interna                             |                                           |
+TESTFP_DETECTOR       |A4                         |                           |Sabotaje Interno                           |                                           |
+TESTFP_DETECTOR       |A3                         |                           |Sabotaje Externo (Trans. Urgente)          |                                           |
+TESTFP_DETECTOR       |A2                         |                           |Intrusion Externa (Trans. Urgente)         |                                           |
+TESTFP_DETECTOR       |A1                         |                           |Alarma de Atraco (Trans. Urgente)          |                                           |
+TESTFP_DETECTOR       |A0                         |                           |Falla Ext./Incendio Ext. (Trans. Urgente)  |                                           |
+TESTFP_DETECTOR       |PE                         |                           |Espera/Apagado                             |                                           |
+TESTFP_DETECTOR       |P2                         |                           |Encendido                                  |                                           |
+TESTFP_DETECTOR       |P3                         |                           |Reconocimiento                             |                                           |
+TESTFP_DETECTOR       |P4                         |                           |Falla                                      |                                           |
+TESTFP_DETECTOR       |P5                         |                           |Falla de Fuente de Alimentacion            |                                           |
+TESTFP_DETECTOR       |P6                         |                           |Apagado                                    |                                           |
+TESTFP_DETECTOR       |TEL                        |                           |Verificacion de Alarma                     |                                           |
+TESTFP_DETECTOR       |ASP                        |                           |Bloqueo de Direccion                       |                                           |
+TESTFP_DETECTOR       |R-FG                       |                           |Disparo Generico                           |                                           |
+TESTFP_DETECTOR       |R-GE                       |                           |Mant.-Espera OMM                           |                                           |
+TESTFP_DETECTOR       |R-G0                       |                           |Mant.-Contaminacion Leve                   |                                           |
+TESTFP_DETECTOR       |R-G2                       |                           |Mant.-Contaminacion Severa                 |                                           |
+TESTFP_DETECTOR       |R-AL                       |                           |Mant.-Alarma OMM                           |                                           |
+TESTFP_DETECTOR       |R-G8                       |                           |Mant.-Falla de Componente Central          |                                           |
+TESTFP_DETECTOR       |R-STE                      |                           |Mant.-Control Encendido                    |                                           |
+TESTFP_DETECTOR       |R-ES                       |                           |Mant.-Falla a Tierra                       |                                           |
+TESTFP_DETECTOR       |R-K4                       |                           |Mant.-Criterio -4                          |                                           |
+TESTFP_DETECTOR       |R-K3                       |                           |Mant.-Criterio -3                          |                                           |
+TESTFP_DETECTOR       |R-K2                       |                           |Mant.-Criterio -2                          |                                           |
+TESTFP_DETECTOR       |R-H1                       |                           |Mant.-Alarma de Emergencia                 |                                           |
+TESTFP_DETECTOR       |R-F3                       |                           |Mant.-Incendio Interno                     |                                           |
+TESTFP_DETECTOR       |R-F2                       |                           |Mant.-Prealarma de Incendio                |                                           |
+TESTFP_DETECTOR       |R-F1                       |                           |Mant.-Incendio Externo                     |                                           |
+TESTFP_DETECTOR       |R-A6                       |                           |Mant.-Disparo                              |                                           |
+TESTFP_DETECTOR       |R-A5                       |                           |Mant.-Alarma Interna                       |                                           |
+TESTFP_DETECTOR       |R-A4                       |                           |Mant.-Alarma Termica (UGM)                 |                                           |
+TESTFP_DETECTOR       |R-A3                       |                           |Mant.-Alarma Optica (UGM)                  |                                           |
+TESTFP_DETECTOR       |R-A2                       |                           |Mant.-Intrusion Externa (UGM)              |                                           |
+TESTFP_DETECTOR       |R-A1                       |                           |Contaminacion (UGM)                        |                                           |
+TESTFP_DETECTOR       |R-A0                       |                           |Mant.-Falla Externa                        |                                           |
+TESTFP_DETECTOR       |R-PE                       |                           |Espera R-R/Max (UGM)                       |                                           |
+TESTFP_DETECTOR       |R-P2                       |                           |Espera TerMax (UGM)                        |                                           |
+TESTFP_DETECTOR       |R-P3                       |                           |Espera Optica (UGM)                        |                                           |
+TESTFP_DETECTOR       |R-P4                       |                           |Nivel Pre-Alarma (UGM)                     |                                           |
+TESTFP_DETECTOR       |R-P5                       |                           |Incendio Int. Termico (UGM)                |                                           |
+TESTFP_DETECTOR       |R-P6                       |                           |Incendio Int. Optico (UGM)                 |                                           |
+TESTFP_DETECTOR       |R-TEL                      |                           |Incendio Ext. Termico (UGM)                |                                           |
+TESTFP_DETECTOR       |R-ASP                      |                           |Incendio Ext. Optico (UGM)                 |                                           |
+TESTFP_DETECTOR       |GE-TD                      |                           |Espera R-R/Max                             |                                           |
+TESTFP_DETECTOR       |GE-TM                      |                           |Espera TMax                                |                                           |
+TESTFP_DETECTOR       |GE-O                       |                           |Espera Optica                              |                                           |
+TESTFP_DETECTOR       |GE-K                       |                           |Espera Combinado                           |                                           |
+TESTFP_DETECTOR       |V2                         |                           |Contaminacion Leve                         |                                           |
+TESTFP_DETECTOR       |V1                         |                           |Contaminacion Severa                       |                                           |
+TESTFP_DETECTOR       |V0                         |                           |Contaminacion Severa (Cantidad)            |                                           |
+TESTFP_DETECTOR       |AV-I                       |                           |Nivel Pre-Alarma Ionico                    |                                           |
+TESTFP_DETECTOR       |AV-O                       |                           |Nivel Pre-Alarma Optico                    |                                           |
+TESTFP_DETECTOR       |AV-T                       |                           |Nivel Pre-Alarma Termico                   |                                           |
+TESTFP_DETECTOR       |AV-K                       |                           |Nivel Pre-Alarma Combinado                 |                                           |
+TESTFP_DETECTOR       |R-F1-O                     |                           |Mant.-Alarma Optica                        |                                           |
+TESTFP_DETECTOR       |R-F1-T                     |                           |Mant.-Alarma Termica                       |                                           |
+TESTFP_DETECTOR       |R-F1-K                     |                           |Mant.-Alarma Combinada                     |                                           |
+TESTFP_DETECTOR       |F1-O                       |                           |Incendio Ext. Optico                       |                                           |
+TESTFP_DETECTOR       |F1-T                       |                           |Incendio Ext. Termico                      |                                           |
+TESTFP_DETECTOR       |F1-K                       |                           |Incendio Ext. Combinado                    |                                           |
+TESTFP_DETECTOR       |FWR                        |                           |Llamada a Bomberos                         |                                           |
+TESTFP_DETECTOR       |F2-E                       |                           |Prealarma Incendio (Trans. Urgente)        |                                           |
+TESTFP_DETECTOR       |F3-O                       |                           |Incendio Int. Optico                       |                                           |
+TESTFP_DETECTOR       |F3-T                       |                           |Incendio Int. Termico                      |                                           |
+TESTFP_DETECTOR       |F3-K                       |                           |Incendio Int. Combinado                    |                                           |
+TESTFP_DETECTOR       |A1-B                       |                           |Alarma de Atraco con Amenaza (TU)          |                                           |
+TESTFP_DETECTOR       |T-GE                       |                           |Espera Modo Dia/Interno                    |                                           |
+TESTFP_DETECTOR       |P8                         |                           |Control Periferico Encendido               |                                           |
+TESTFP_DETECTOR       |G1                         |                           |Falla de Luz                               |                                           |
+TESTFP_DETECTOR       |G2                         |                           |Falla de Linea                             |                                           |
+TESTFP_DETECTOR       |PA                         |                           |Fin de Papel                               |                                           |
+TESTFP_DETECTOR       |A7                         |                           |Disparo Desarmado                          |                                           |
+TESTFP_DETECTOR       |NEF                        |                           |Falla de Red Electrica                     |                                           |
+TESTFP_DETECTOR       |BF                         |                           |Falla de Bateria                           |                                           |
+TESTFP_NAC            |FG                         |                           |Zona Perdida                               |                                           |
+TESTFP_NAC            |MAD                        |                           |Enmascaramiento de Detector                |                                           |
+TESTFP_NAC            |ABL                        |                           |Desvanecimiento/Omision                    |                                           |
+TESTFP_NAC            |ABS                        |                           |Zona Apagada                               |                                           |
+TESTFP_NAC            |TST                        |                           |Prueba de Detector                         |                                           |
+TESTFP_NAC            |GE                         |                           |Espera/Control Apagado                     |                                           |
+TESTFP_NAC            |G8                         |                           |Falla de Componente Central                |                                           |
+TESTFP_NAC            |STE                        |                           |Control Encendido                          |                                           |
+TESTFP_NAC            |ES                         |                           |Falla a Tierra                             |                                           |
+TESTFP_NAC            |K4                         |                           |Criterio -4                                |                                           |
+TESTFP_NAC            |K3                         |                           |Criterio -3                                |                                           |
+TESTFP_NAC            |K2                         |                           |Criterio -2                                |                                           |
+TESTFP_NAC            |G0                         |                           |Falla Generica                             |                                           |
+TESTFP_NAC            |H1                         |                           |Alarma de Emergencia                       |                                           |
+TESTFP_NAC            |F3                         |                           |Alarma Incendio Interna                    |                                           |
+TESTFP_NAC            |F2                         |                           |Prealarma de Incendio                      |                                           |
+TESTFP_NAC            |F1                         |                           |Alarma Incendio Externa (Trans. Urgente)   |                                           |
+TESTFP_NAC            |A6                         |                           |Disparo Desarmado                          |                                           |
+TESTFP_NAC            |A5                         |                           |Alarma Interna                             |                                           |
+TESTFP_NAC            |A4                         |                           |Sabotaje Interno                           |                                           |
+TESTFP_NAC            |A3                         |                           |Sabotaje Externo (Trans. Urgente)          |                                           |
+TESTFP_NAC            |A2                         |                           |Intrusion Externa (Trans. Urgente)         |                                           |
+TESTFP_NAC            |A1                         |                           |Alarma de Atraco (Trans. Urgente)          |                                           |
+TESTFP_NAC            |A0                         |                           |Falla Ext./Incendio Ext. (Trans. Urgente)  |                                           |
+TESTFP_NAC            |PE                         |                           |Espera/Apagado                             |                                           |
+TESTFP_NAC            |P2                         |                           |Encendido                                  |                                           |
+TESTFP_NAC            |P3                         |                           |Reconocimiento                             |                                           |
+TESTFP_NAC            |P4                         |                           |Falla                                      |                                           |
+TESTFP_NAC            |P5                         |                           |Falla de Fuente de Alimentacion            |                                           |
+TESTFP_NAC            |P6                         |                           |Apagado                                    |                                           |
+TESTFP_NAC            |TEL                        |                           |Verificacion de Alarma                     |                                           |
+TESTFP_NAC            |ASP                        |                           |Bloqueo de Direccion                       |                                           |
+TESTFP_NAC            |R-FG                       |                           |Disparo Generico                           |                                           |
+TESTFP_NAC            |R-GE                       |                           |Mant.-Espera OMM                           |                                           |
+TESTFP_NAC            |R-G0                       |                           |Mant.-Contaminacion Leve                   |                                           |
+TESTFP_NAC            |R-G2                       |                           |Mant.-Contaminacion Severa                 |                                           |
+TESTFP_NAC            |R-AL                       |                           |Mant.-Alarma OMM                           |                                           |
+TESTFP_NAC            |R-G8                       |                           |Mant.-Falla de Componente Central          |                                           |
+TESTFP_NAC            |R-STE                      |                           |Mant.-Control Encendido                    |                                           |
+TESTFP_NAC            |R-ES                       |                           |Mant.-Falla a Tierra                       |                                           |
+TESTFP_NAC            |R-K4                       |                           |Mant.-Criterio -4                          |                                           |
+TESTFP_NAC            |R-K3                       |                           |Mant.-Criterio -3                          |                                           |
+TESTFP_NAC            |R-K2                       |                           |Mant.-Criterio -2                          |                                           |
+TESTFP_NAC            |R-H1                       |                           |Mant.-Alarma de Emergencia                 |                                           |
+TESTFP_NAC            |R-F3                       |                           |Mant.-Incendio Interno                     |                                           |
+TESTFP_NAC            |R-F2                       |                           |Mant.-Prealarma de Incendio                |                                           |
+TESTFP_NAC            |R-F1                       |                           |Mant.-Incendio Externo                     |                                           |
+TESTFP_NAC            |R-A6                       |                           |Mant.-Disparo                              |                                           |
+TESTFP_NAC            |R-A5                       |                           |Mant.-Alarma Interna                       |                                           |
+TESTFP_NAC            |R-A4                       |                           |Mant.-Alarma Termica (UGM)                 |                                           |
+TESTFP_NAC            |R-A3                       |                           |Mant.-Alarma Optica (UGM)                  |                                           |
+TESTFP_NAC            |R-A2                       |                           |Mant.-Intrusion Externa (UGM)              |                                           |
+TESTFP_NAC            |R-A1                       |                           |Contaminacion (UGM)                        |                                           |
+TESTFP_NAC            |R-A0                       |                           |Mant.-Falla Externa                        |                                           |
+TESTFP_NAC            |R-PE                       |                           |Espera R-R/Max (UGM)                       |                                           |
+TESTFP_NAC            |R-P2                       |                           |Espera TerMax (UGM)                        |                                           |
+TESTFP_NAC            |R-P3                       |                           |Espera Optica (UGM)                        |                                           |
+TESTFP_NAC            |R-P4                       |                           |Nivel Pre-Alarma (UGM)                     |                                           |
+TESTFP_NAC            |R-P5                       |                           |Incendio Int. Termico (UGM)                |                                           |
+TESTFP_NAC            |R-P6                       |                           |Incendio Int. Optico (UGM)                 |                                           |
+TESTFP_NAC            |R-TEL                      |                           |Incendio Ext. Termico (UGM)                |                                           |
+TESTFP_NAC            |R-ASP                      |                           |Incendio Ext. Optico (UGM)                 |                                           |
+TESTFP_NAC            |GE-TD                      |                           |Espera R-R/Max                             |                                           |
+TESTFP_NAC            |GE-TM                      |                           |Espera TMax                                |                                           |
+TESTFP_NAC            |GE-O                       |                           |Espera Optica                              |                                           |
+TESTFP_NAC            |GE-K                       |                           |Espera Combinado                           |                                           |
+TESTFP_NAC            |V2                         |                           |Contaminacion Leve                         |                                           |
+TESTFP_NAC            |V1                         |                           |Contaminacion Severa                       |                                           |
+TESTFP_NAC            |V0                         |                           |Contaminacion Severa (Cantidad)            |                                           |
+TESTFP_NAC            |AV-I                       |                           |Nivel Pre-Alarma Ionico                    |                                           |
+TESTFP_NAC            |AV-O                       |                           |Nivel Pre-Alarma Optico                    |                                           |
+TESTFP_NAC            |AV-T                       |                           |Nivel Pre-Alarma Termico                   |                                           |
+TESTFP_NAC            |AV-K                       |                           |Nivel Pre-Alarma Combinado                 |                                           |
+TESTFP_NAC            |R-F1-O                     |                           |Mant.-Alarma Optica                        |                                           |
+TESTFP_NAC            |R-F1-T                     |                           |Mant.-Alarma Termica                       |                                           |
+TESTFP_NAC            |R-F1-K                     |                           |Mant.-Alarma Combinada                     |                                           |
+TESTFP_NAC            |F1-O                       |                           |Incendio Ext. Optico                       |                                           |
+TESTFP_NAC            |F1-T                       |                           |Incendio Ext. Termico                      |                                           |
+TESTFP_NAC            |F1-K                       |                           |Incendio Ext. Combinado                    |                                           |
+TESTFP_NAC            |FWR                        |                           |Llamada a Bomberos                         |                                           |
+TESTFP_NAC            |F2-E                       |                           |Prealarma Incendio (Trans. Urgente)        |                                           |
+TESTFP_NAC            |F3-O                       |                           |Incendio Int. Optico                       |                                           |
+TESTFP_NAC            |F3-T                       |                           |Incendio Int. Termico                      |                                           |
+TESTFP_NAC            |F3-K                       |                           |Incendio Int. Combinado                    |                                           |
+TESTFP_NAC            |A1-B                       |                           |Alarma de Atraco con Amenaza (TU)          |                                           |
+TESTFP_NAC            |T-GE                       |                           |Espera Modo Dia/Interno                    |                                           |
+TESTFP_NAC            |P8                         |                           |Control Periferico Encendido               |                                           |
+TESTFP_NAC            |G1                         |                           |Falla de Luz                               |                                           |
+TESTFP_NAC            |G2                         |                           |Falla de Linea                             |                                           |
+TESTFP_NAC            |PA                         |                           |Fin de Papel                               |                                           |
+TESTFP_NAC            |A7                         |                           |Disparo Desarmado                          |                                           |
+TESTFP_NAC            |NEF                        |                           |Falla de Red Electrica                     |                                           |
+TESTFP_NAC            |BF                         |                           |Falla de Bateria                           |                                           |
+
+[REACT]
+TESTFP_DETECTOR       |BYPASS_ON                  |                           |                                           |Anular un detector                         |                |
+TESTFP_DETECTOR       |ALTERSET_OFF               |                           |                                           |Alternar ajuste/Desactivado                |                |
+TESTFP_DETECTOR       |ACK                        |                           |                                           |Reconocer                                  |                |
+TESTFP_DETECTOR       |RESET                      |                           |                                           |Reiniciar                                  |                |
+TESTFP_DETECTOR       |BYPASS_OFF                 |                           |                                           |Sin anulación de detector                  |                |
+TESTFP_DETECTOR       |ISOLATE_ON                 |                           |                                           |Aislar un dispositivo                      |                |
+TESTFP_DETECTOR       |ISOLATE_OFF                |                           |                                           |Sin aislado de dispositivo                 |                |
+TESTFP_DETECTOR       |WALKTEST_ON                |                           |                                           |Modo de prueba/Activado                    |                |
+TESTFP_DETECTOR       |WALKTEST_OFF               |                           |                                           |Modo de prueba/Apagado                     |                |
+TESTFP_DETECTOR       |ALTERSET_ON                |                           |                                           |Alternar ajuste/Activado                   |                |
+TESTFP_NAC            |BYPASS_ON                  |                           |                                           |Anular un detector                         |                |
+TESTFP_NAC            |ACK                        |                           |                                           |Reconocer                                  |                |
+TESTFP_NAC            |RESET                      |                           |                                           |Reiniciar                                  |                |
+TESTFP_NAC            |BYPASS_OFF                 |                           |                                           |Sin anulación de detector                  |                |
+TESTFP_NAC            |ISOLATE_ON                 |                           |                                           |Aislar un dispositivo                      |                |
+TESTFP_NAC            |ISOLATE_OFF                |                           |                                           |Sin aislado de dispositivo                 |                |
+TESTFP_NAC            |ACTIVATE_ON                |                           |                                           |Activar salida/Activado                    |                |
+TESTFP_NAC            |ACTIVATE_OFF               |                           |                                           |Activar salida/Desactivado                 |                |
+
+[STATE]
+TESTFP_DETECTOR       |FG                  |FG      |                                           |                                           |Zona Perdida                               |
+TESTFP_DETECTOR       |MAD                 |MAD     |                                           |                                           |Enmascaramiento de Detector                |
+TESTFP_DETECTOR       |ABL                 |ABL     |                                           |                                           |Desvanecimiento/Omision                    |
+TESTFP_DETECTOR       |ABS                 |ABS     |                                           |                                           |Zona Apagada                               |
+TESTFP_DETECTOR       |TST                 |TST     |                                           |                                           |Prueba de Detector                         |
+TESTFP_DETECTOR       |GE                  |GE      |                                           |                                           |Espera/Control Apagado                     |
+TESTFP_DETECTOR       |G8                  |G8      |                                           |                                           |Falla de Componente Central                |
+TESTFP_DETECTOR       |STE                 |STE     |                                           |                                           |Control Encendido                          |
+TESTFP_DETECTOR       |ES                  |ES      |                                           |                                           |Falla a Tierra                             |
+TESTFP_DETECTOR       |K4                  |K4      |                                           |                                           |Criterio -4                                |
+TESTFP_DETECTOR       |K3                  |K3      |                                           |                                           |Criterio -3                                |
+TESTFP_DETECTOR       |K2                  |K2      |                                           |                                           |Criterio -2                                |
+TESTFP_DETECTOR       |G0                  |G0      |                                           |                                           |Falla Generica                             |
+TESTFP_DETECTOR       |H1                  |H1      |                                           |                                           |Alarma de Emergencia                       |
+TESTFP_DETECTOR       |F3                  |F3      |                                           |                                           |Alarma Incendio Interna                    |
+TESTFP_DETECTOR       |F2                  |F2      |                                           |                                           |Prealarma de Incendio                      |
+TESTFP_DETECTOR       |F1                  |F1      |                                           |                                           |Alarma Incendio Externa (Trans. Urgente)   |
+TESTFP_DETECTOR       |A6                  |A6      |                                           |                                           |Disparo Desarmado                          |
+TESTFP_DETECTOR       |A5                  |A5      |                                           |                                           |Alarma Interna                             |
+TESTFP_DETECTOR       |A4                  |A4      |                                           |                                           |Sabotaje Interno                           |
+TESTFP_DETECTOR       |A3                  |A3      |                                           |                                           |Sabotaje Externo (Trans. Urgente)          |
+TESTFP_DETECTOR       |A2                  |A2      |                                           |                                           |Intrusion Externa (Trans. Urgente)         |
+TESTFP_DETECTOR       |A1                  |A1      |                                           |                                           |Alarma de Atraco (Trans. Urgente)          |
+TESTFP_DETECTOR       |A0                  |A0      |                                           |                                           |Falla Ext./Incendio Ext. (Trans. Urgente)  |
+TESTFP_DETECTOR       |PE                  |PE      |                                           |                                           |Espera/Apagado                             |
+TESTFP_DETECTOR       |P2                  |P2      |                                           |                                           |Encendido                                  |
+TESTFP_DETECTOR       |P3                  |P3      |                                           |                                           |Reconocimiento                             |
+TESTFP_DETECTOR       |P4                  |P4      |                                           |                                           |Falla                                      |
+TESTFP_DETECTOR       |P5                  |P5      |                                           |                                           |Falla de Fuente de Alimentacion            |
+TESTFP_DETECTOR       |P6                  |P6      |                                           |                                           |Apagado                                    |
+TESTFP_DETECTOR       |TEL                 |TEL     |                                           |                                           |Verificacion de Alarma                     |
+TESTFP_DETECTOR       |ASP                 |ASP     |                                           |                                           |Bloqueo de Direccion                       |
+TESTFP_DETECTOR       |R-FG                |R-FG    |                                           |                                           |Disparo Generico                           |
+TESTFP_DETECTOR       |R-GE                |R-GE    |                                           |                                           |Mant.-Espera OMM                           |
+TESTFP_DETECTOR       |R-G0                |R-G0    |                                           |                                           |Mant.-Contaminacion Leve                   |
+TESTFP_DETECTOR       |R-G2                |R-G2    |                                           |                                           |Mant.-Contaminacion Severa                 |
+TESTFP_DETECTOR       |R-AL                |R-AL    |                                           |                                           |Mant.-Alarma OMM                           |
+TESTFP_DETECTOR       |R-G8                |R-G8    |                                           |                                           |Mant.-Falla de Componente Central          |
+TESTFP_DETECTOR       |R-STE               |R-STE   |                                           |                                           |Mant.-Control Encendido                    |
+TESTFP_DETECTOR       |R-ES                |R-ES    |                                           |                                           |Mant.-Falla a Tierra                       |
+TESTFP_DETECTOR       |R-K4                |R-K4    |                                           |                                           |Mant.-Criterio -4                          |
+TESTFP_DETECTOR       |R-K3                |R-K3    |                                           |                                           |Mant.-Criterio -3                          |
+TESTFP_DETECTOR       |R-K2                |R-K2    |                                           |                                           |Mant.-Criterio -2                          |
+TESTFP_DETECTOR       |R-H1                |R-H1    |                                           |                                           |Mant.-Alarma de Emergencia                 |
+TESTFP_DETECTOR       |R-F3                |R-F3    |                                           |                                           |Mant.-Incendio Interno                     |
+TESTFP_DETECTOR       |R-F2                |R-F2    |                                           |                                           |Mant.-Prealarma de Incendio                |
+TESTFP_DETECTOR       |R-F1                |R-F1    |                                           |                                           |Mant.-Incendio Externo                     |
+TESTFP_DETECTOR       |R-A6                |R-A6    |                                           |                                           |Mant.-Disparo                              |
+TESTFP_DETECTOR       |R-A5                |R-A5    |                                           |                                           |Mant.-Alarma Interna                       |
+TESTFP_DETECTOR       |R-A4                |R-A4    |                                           |                                           |Mant.-Alarma Termica (UGM)                 |
+TESTFP_DETECTOR       |R-A3                |R-A3    |                                           |                                           |Mant.-Alarma Optica (UGM)                  |
+TESTFP_DETECTOR       |R-A2                |R-A2    |                                           |                                           |Mant.-Intrusion Externa (UGM)              |
+TESTFP_DETECTOR       |R-A1                |R-A1    |                                           |                                           |Contaminacion (UGM)                        |
+TESTFP_DETECTOR       |R-A0                |R-A0    |                                           |                                           |Mant.-Falla Externa                        |
+TESTFP_DETECTOR       |R-PE                |R-PE    |                                           |                                           |Espera R-R/Max (UGM)                       |
+TESTFP_DETECTOR       |R-P2                |R-P2    |                                           |                                           |Espera TerMax (UGM)                        |
+TESTFP_DETECTOR       |R-P3                |R-P3    |                                           |                                           |Espera Optica (UGM)                        |
+TESTFP_DETECTOR       |R-P4                |R-P4    |                                           |                                           |Nivel Pre-Alarma (UGM)                     |
+TESTFP_DETECTOR       |R-P5                |R-P5    |                                           |                                           |Incendio Int. Termico (UGM)                |
+TESTFP_DETECTOR       |R-P6                |R-P6    |                                           |                                           |Incendio Int. Optico (UGM)                 |
+TESTFP_DETECTOR       |R-TEL               |R-TEL   |                                           |                                           |Incendio Ext. Termico (UGM)                |
+TESTFP_DETECTOR       |R-ASP               |R-ASP   |                                           |                                           |Incendio Ext. Optico (UGM)                 |
+TESTFP_DETECTOR       |GE-TD               |GE-TD   |                                           |                                           |Espera R-R/Max                             |
+TESTFP_DETECTOR       |GE-TM               |GE-TM   |                                           |                                           |Espera TMax                                |
+TESTFP_DETECTOR       |GE-O                |GE-O    |                                           |                                           |Espera Optica                              |
+TESTFP_DETECTOR       |GE-K                |GE-K    |                                           |                                           |Espera Combinado                           |
+TESTFP_DETECTOR       |V2                  |V2      |                                           |                                           |Contaminacion Leve                         |
+TESTFP_DETECTOR       |V1                  |V1      |                                           |                                           |Contaminacion Severa                       |
+TESTFP_DETECTOR       |V0                  |V0      |                                           |                                           |Contaminacion Severa (Cantidad)            |
+TESTFP_DETECTOR       |AV-I                |AV-I    |                                           |                                           |Nivel Pre-Alarma Ionico                    |
+TESTFP_DETECTOR       |AV-O                |AV-O    |                                           |                                           |Nivel Pre-Alarma Optico                    |
+TESTFP_DETECTOR       |AV-T                |AV-T    |                                           |                                           |Nivel Pre-Alarma Termico                   |
+TESTFP_DETECTOR       |AV-K                |AV-K    |                                           |                                           |Nivel Pre-Alarma Combinado                 |
+TESTFP_DETECTOR       |R-F1-O              |R-F1-O  |                                           |                                           |Mant.-Alarma Optica                        |
+TESTFP_DETECTOR       |R-F1-T              |R-F1-T  |                                           |                                           |Mant.-Alarma Termica                       |
+TESTFP_DETECTOR       |R-F1-K              |R-F1-K  |                                           |                                           |Mant.-Alarma Combinada                     |
+TESTFP_DETECTOR       |F1-O                |F1-O    |                                           |                                           |Incendio Ext. Optico                       |
+TESTFP_DETECTOR       |F1-T                |F1-T    |                                           |                                           |Incendio Ext. Termico                      |
+TESTFP_DETECTOR       |F1-K                |F1-K    |                                           |                                           |Incendio Ext. Combinado                    |
+TESTFP_DETECTOR       |FWR                 |FWR     |                                           |                                           |Llamada a Bomberos                         |
+TESTFP_DETECTOR       |F2-E                |F2-E    |                                           |                                           |Prealarma Incendio (Trans. Urgente)        |
+TESTFP_DETECTOR       |F3-O                |F3-O    |                                           |                                           |Incendio Int. Optico                       |
+TESTFP_DETECTOR       |F3-T                |F3-T    |                                           |                                           |Incendio Int. Termico                      |
+TESTFP_DETECTOR       |F3-K                |F3-K    |                                           |                                           |Incendio Int. Combinado                    |
+TESTFP_DETECTOR       |A1-B                |A1-B    |                                           |                                           |Alarma de Atraco con Amenaza (TU)          |
+TESTFP_DETECTOR       |T-GE                |T-GE    |                                           |                                           |Espera Modo Dia/Interno                    |
+TESTFP_DETECTOR       |P8                  |P8      |                                           |                                           |Control Periferico Encendido               |
+TESTFP_DETECTOR       |G1                  |G1      |                                           |                                           |Falla de Luz                               |
+TESTFP_DETECTOR       |G2                  |G2      |                                           |                                           |Falla de Linea                             |
+TESTFP_DETECTOR       |PA                  |PA      |                                           |                                           |Fin de Papel                               |
+TESTFP_DETECTOR       |A7                  |A7      |                                           |                                           |Disparo Desarmado                          |
+TESTFP_DETECTOR       |NEF                 |NEF     |                                           |                                           |Falla de Red Electrica                     |
+TESTFP_DETECTOR       |BF                  |BF      |                                           |                                           |Falla de Bateria                           |
+TESTFP_NAC            |FG                  |FG      |                                           |                                           |Zona Perdida                               |
+TESTFP_NAC            |MAD                 |MAD     |                                           |                                           |Enmascaramiento de Detector                |
+TESTFP_NAC            |ABL                 |ABL     |                                           |                                           |Desvanecimiento/Omision                    |
+TESTFP_NAC            |ABS                 |ABS     |                                           |                                           |Zona Apagada                               |
+TESTFP_NAC            |TST                 |TST     |                                           |                                           |Prueba de Detector                         |
+TESTFP_NAC            |GE                  |GE      |                                           |                                           |Espera/Control Apagado                     |
+TESTFP_NAC            |G8                  |G8      |                                           |                                           |Falla de Componente Central                |
+TESTFP_NAC            |STE                 |STE     |                                           |                                           |Control Encendido                          |
+TESTFP_NAC            |ES                  |ES      |                                           |                                           |Falla a Tierra                             |
+TESTFP_NAC            |K4                  |K4      |                                           |                                           |Criterio -4                                |
+TESTFP_NAC            |K3                  |K3      |                                           |                                           |Criterio -3                                |
+TESTFP_NAC            |K2                  |K2      |                                           |                                           |Criterio -2                                |
+TESTFP_NAC            |G0                  |G0      |                                           |                                           |Falla Generica                             |
+TESTFP_NAC            |H1                  |H1      |                                           |                                           |Alarma de Emergencia                       |
+TESTFP_NAC            |F3                  |F3      |                                           |                                           |Alarma Incendio Interna                    |
+TESTFP_NAC            |F2                  |F2      |                                           |                                           |Prealarma de Incendio                      |
+TESTFP_NAC            |F1                  |F1      |                                           |                                           |Alarma Incendio Externa (Trans. Urgente)   |
+TESTFP_NAC            |A6                  |A6      |                                           |                                           |Disparo Desarmado                          |
+TESTFP_NAC            |A5                  |A5      |                                           |                                           |Alarma Interna                             |
+TESTFP_NAC            |A4                  |A4      |                                           |                                           |Sabotaje Interno                           |
+TESTFP_NAC            |A3                  |A3      |                                           |                                           |Sabotaje Externo (Trans. Urgente)          |
+TESTFP_NAC            |A2                  |A2      |                                           |                                           |Intrusion Externa (Trans. Urgente)         |
+TESTFP_NAC            |A1                  |A1      |                                           |                                           |Alarma de Atraco (Trans. Urgente)          |
+TESTFP_NAC            |A0                  |A0      |                                           |                                           |Falla Ext./Incendio Ext. (Trans. Urgente)  |
+TESTFP_NAC            |PE                  |PE      |                                           |                                           |Espera/Apagado                             |
+TESTFP_NAC            |P2                  |P2      |                                           |                                           |Encendido                                  |
+TESTFP_NAC            |P3                  |P3      |                                           |                                           |Reconocimiento                             |
+TESTFP_NAC            |P4                  |P4      |                                           |                                           |Falla                                      |
+TESTFP_NAC            |P5                  |P5      |                                           |                                           |Falla de Fuente de Alimentacion            |
+TESTFP_NAC            |P6                  |P6      |                                           |                                           |Apagado                                    |
+TESTFP_NAC            |TEL                 |TEL     |                                           |                                           |Verificacion de Alarma                     |
+TESTFP_NAC            |ASP                 |ASP     |                                           |                                           |Bloqueo de Direccion                       |
+TESTFP_NAC            |R-FG                |R-FG    |                                           |                                           |Disparo Generico                           |
+TESTFP_NAC            |R-GE                |R-GE    |                                           |                                           |Mant.-Espera OMM                           |
+TESTFP_NAC            |R-G0                |R-G0    |                                           |                                           |Mant.-Contaminacion Leve                   |
+TESTFP_NAC            |R-G2                |R-G2    |                                           |                                           |Mant.-Contaminacion Severa                 |
+TESTFP_NAC            |R-AL                |R-AL    |                                           |                                           |Mant.-Alarma OMM                           |
+TESTFP_NAC            |R-G8                |R-G8    |                                           |                                           |Mant.-Falla de Componente Central          |
+TESTFP_NAC            |R-STE               |R-STE   |                                           |                                           |Mant.-Control Encendido                    |
+TESTFP_NAC            |R-ES                |R-ES    |                                           |                                           |Mant.-Falla a Tierra                       |
+TESTFP_NAC            |R-K4                |R-K4    |                                           |                                           |Mant.-Criterio -4                          |
+TESTFP_NAC            |R-K3                |R-K3    |                                           |                                           |Mant.-Criterio -3                          |
+TESTFP_NAC            |R-K2                |R-K2    |                                           |                                           |Mant.-Criterio -2                          |
+TESTFP_NAC            |R-H1                |R-H1    |                                           |                                           |Mant.-Alarma de Emergencia                 |
+TESTFP_NAC            |R-F3                |R-F3    |                                           |                                           |Mant.-Incendio Interno                     |
+TESTFP_NAC            |R-F2                |R-F2    |                                           |                                           |Mant.-Prealarma de Incendio                |
+TESTFP_NAC            |R-F1                |R-F1    |                                           |                                           |Mant.-Incendio Externo                     |
+TESTFP_NAC            |R-A6                |R-A6    |                                           |                                           |Mant.-Disparo                              |
+TESTFP_NAC            |R-A5                |R-A5    |                                           |                                           |Mant.-Alarma Interna                       |
+TESTFP_NAC            |R-A4                |R-A4    |                                           |                                           |Mant.-Alarma Termica (UGM)                 |
+TESTFP_NAC            |R-A3                |R-A3    |                                           |                                           |Mant.-Alarma Optica (UGM)                  |
+TESTFP_NAC            |R-A2                |R-A2    |                                           |                                           |Mant.-Intrusion Externa (UGM)              |
+TESTFP_NAC            |R-A1                |R-A1    |                                           |                                           |Contaminacion (UGM)                        |
+TESTFP_NAC            |R-A0                |R-A0    |                                           |                                           |Mant.-Falla Externa                        |
+TESTFP_NAC            |R-PE                |R-PE    |                                           |                                           |Espera R-R/Max (UGM)                       |
+TESTFP_NAC            |R-P2                |R-P2    |                                           |                                           |Espera TerMax (UGM)                        |
+TESTFP_NAC            |R-P3                |R-P3    |                                           |                                           |Espera Optica (UGM)                        |
+TESTFP_NAC            |R-P4                |R-P4    |                                           |                                           |Nivel Pre-Alarma (UGM)                     |
+TESTFP_NAC            |R-P5                |R-P5    |                                           |                                           |Incendio Int. Termico (UGM)                |
+TESTFP_NAC            |R-P6                |R-P6    |                                           |                                           |Incendio Int. Optico (UGM)                 |
+TESTFP_NAC            |R-TEL               |R-TEL   |                                           |                                           |Incendio Ext. Termico (UGM)                |
+TESTFP_NAC            |R-ASP               |R-ASP   |                                           |                                           |Incendio Ext. Optico (UGM)                 |
+TESTFP_NAC            |GE-TD               |GE-TD   |                                           |                                           |Espera R-R/Max                             |
+TESTFP_NAC            |GE-TM               |GE-TM   |                                           |                                           |Espera TMax                                |
+TESTFP_NAC            |GE-O                |GE-O    |                                           |                                           |Espera Optica                              |
+TESTFP_NAC            |GE-K                |GE-K    |                                           |                                           |Espera Combinado                           |
+TESTFP_NAC            |V2                  |V2      |                                           |                                           |Contaminacion Leve                         |
+TESTFP_NAC            |V1                  |V1      |                                           |                                           |Contaminacion Severa                       |
+TESTFP_NAC            |V0                  |V0      |                                           |                                           |Contaminacion Severa (Cantidad)            |
+TESTFP_NAC            |AV-I                |AV-I    |                                           |                                           |Nivel Pre-Alarma Ionico                    |
+TESTFP_NAC            |AV-O                |AV-O    |                                           |                                           |Nivel Pre-Alarma Optico                    |
+TESTFP_NAC            |AV-T                |AV-T    |                                           |                                           |Nivel Pre-Alarma Termico                   |
+TESTFP_NAC            |AV-K                |AV-K    |                                           |                                           |Nivel Pre-Alarma Combinado                 |
+TESTFP_NAC            |R-F1-O              |R-F1-O  |                                           |                                           |Mant.-Alarma Optica                        |
+TESTFP_NAC            |R-F1-T              |R-F1-T  |                                           |                                           |Mant.-Alarma Termica                       |
+TESTFP_NAC            |R-F1-K              |R-F1-K  |                                           |                                           |Mant.-Alarma Combinada                     |
+TESTFP_NAC            |F1-O                |F1-O    |                                           |                                           |Incendio Ext. Optico                       |
+TESTFP_NAC            |F1-T                |F1-T    |                                           |                                           |Incendio Ext. Termico                      |
+TESTFP_NAC            |F1-K                |F1-K    |                                           |                                           |Incendio Ext. Combinado                    |
+TESTFP_NAC            |FWR                 |FWR     |                                           |                                           |Llamada a Bomberos                         |
+TESTFP_NAC            |F2-E                |F2-E    |                                           |                                           |Prealarma Incendio (Trans. Urgente)        |
+TESTFP_NAC            |F3-O                |F3-O    |                                           |                                           |Incendio Int. Optico                       |
+TESTFP_NAC            |F3-T                |F3-T    |                                           |                                           |Incendio Int. Termico                      |
+TESTFP_NAC            |F3-K                |F3-K    |                                           |                                           |Incendio Int. Combinado                    |
+TESTFP_NAC            |A1-B                |A1-B    |                                           |                                           |Alarma de Atraco con Amenaza (TU)          |
+TESTFP_NAC            |T-GE                |T-GE    |                                           |                                           |Espera Modo Dia/Interno                    |
+TESTFP_NAC            |P8                  |P8      |                                           |                                           |Control Periferico Encendido               |
+TESTFP_NAC            |G1                  |G1      |                                           |                                           |Falla de Luz                               |
+TESTFP_NAC            |G2                  |G2      |                                           |                                           |Falla de Linea                             |
+TESTFP_NAC            |PA                  |PA      |                                           |                                           |Fin de Papel                               |
+TESTFP_NAC            |A7                  |A7      |                                           |                                           |Disparo Desarmado                          |
+TESTFP_NAC            |NEF                 |NEF     |                                           |                                           |Falla de Red Electrica                     |
+TESTFP_NAC            |BF                  |BF      |                                           |                                           |Falla de Bateria                           |
+
+[MARKER]
+
+[STATE_RULE]
+TESTFP_DETECTOR       |FG                  |                    |FG                  |
+TESTFP_DETECTOR       |MAD                 |                    |MAD                 |
+TESTFP_DETECTOR       |ABL                 |                    |ABL                 |
+TESTFP_DETECTOR       |ABS                 |                    |ABS                 |
+TESTFP_DETECTOR       |TST                 |                    |TST                 |
+TESTFP_DETECTOR       |GE                  |                    |GE                  |
+TESTFP_DETECTOR       |G8                  |                    |G8                  |
+TESTFP_DETECTOR       |STE                 |                    |STE                 |
+TESTFP_DETECTOR       |ES                  |                    |ES                  |
+TESTFP_DETECTOR       |K4                  |                    |K4                  |
+TESTFP_DETECTOR       |K3                  |                    |K3                  |
+TESTFP_DETECTOR       |K2                  |                    |K2                  |
+TESTFP_DETECTOR       |G0                  |                    |G0                  |
+TESTFP_DETECTOR       |H1                  |                    |H1                  |
+TESTFP_DETECTOR       |F3                  |                    |F3                  |
+TESTFP_DETECTOR       |F2                  |                    |F2                  |
+TESTFP_DETECTOR       |F1                  |                    |F1                  |
+TESTFP_DETECTOR       |A6                  |                    |A6                  |
+TESTFP_DETECTOR       |A5                  |                    |A5                  |
+TESTFP_DETECTOR       |A4                  |                    |A4                  |
+TESTFP_DETECTOR       |A3                  |                    |A3                  |
+TESTFP_DETECTOR       |A2                  |                    |A2                  |
+TESTFP_DETECTOR       |A1                  |                    |A1                  |
+TESTFP_DETECTOR       |A0                  |                    |A0                  |
+TESTFP_DETECTOR       |PE                  |                    |PE                  |
+TESTFP_DETECTOR       |P2                  |                    |P2                  |
+TESTFP_DETECTOR       |P3                  |                    |P3                  |
+TESTFP_DETECTOR       |P4                  |                    |P4                  |
+TESTFP_DETECTOR       |P5                  |                    |P5                  |
+TESTFP_DETECTOR       |P6                  |                    |P6                  |
+TESTFP_DETECTOR       |TEL                 |                    |TEL                 |
+TESTFP_DETECTOR       |ASP                 |                    |ASP                 |
+TESTFP_DETECTOR       |R-FG                |                    |R-FG                |
+TESTFP_DETECTOR       |R-GE                |                    |R-GE                |
+TESTFP_DETECTOR       |R-G0                |                    |R-G0                |
+TESTFP_DETECTOR       |R-G2                |                    |R-G2                |
+TESTFP_DETECTOR       |R-AL                |                    |R-AL                |
+TESTFP_DETECTOR       |R-G8                |                    |R-G8                |
+TESTFP_DETECTOR       |R-STE               |                    |R-STE               |
+TESTFP_DETECTOR       |R-ES                |                    |R-ES                |
+TESTFP_DETECTOR       |R-K4                |                    |R-K4                |
+TESTFP_DETECTOR       |R-K3                |                    |R-K3                |
+TESTFP_DETECTOR       |R-K2                |                    |R-K2                |
+TESTFP_DETECTOR       |R-H1                |                    |R-H1                |
+TESTFP_DETECTOR       |R-F3                |                    |R-F3                |
+TESTFP_DETECTOR       |R-F2                |                    |R-F2                |
+TESTFP_DETECTOR       |R-F1                |                    |R-F1                |
+TESTFP_DETECTOR       |R-A6                |                    |R-A6                |
+TESTFP_DETECTOR       |R-A5                |                    |R-A5                |
+TESTFP_DETECTOR       |R-A4                |                    |R-A4                |
+TESTFP_DETECTOR       |R-A3                |                    |R-A3                |
+TESTFP_DETECTOR       |R-A2                |                    |R-A2                |
+TESTFP_DETECTOR       |R-A1                |                    |R-A1                |
+TESTFP_DETECTOR       |R-A0                |                    |R-A0                |
+TESTFP_DETECTOR       |R-PE                |                    |R-PE                |
+TESTFP_DETECTOR       |R-P2                |                    |R-P2                |
+TESTFP_DETECTOR       |R-P3                |                    |R-P3                |
+TESTFP_DETECTOR       |R-P4                |                    |R-P4                |
+TESTFP_DETECTOR       |R-P5                |                    |R-P5                |
+TESTFP_DETECTOR       |R-P6                |                    |R-P6                |
+TESTFP_DETECTOR       |R-TEL               |                    |R-TEL               |
+TESTFP_DETECTOR       |R-ASP               |                    |R-ASP               |
+TESTFP_DETECTOR       |GE-TD               |                    |GE-TD               |
+TESTFP_DETECTOR       |GE-TM               |                    |GE-TM               |
+TESTFP_DETECTOR       |GE-O                |                    |GE-O                |
+TESTFP_DETECTOR       |GE-K                |                    |GE-K                |
+TESTFP_DETECTOR       |V2                  |                    |V2                  |
+TESTFP_DETECTOR       |V1                  |                    |V1                  |
+TESTFP_DETECTOR       |V0                  |                    |V0                  |
+TESTFP_DETECTOR       |AV-I                |                    |AV-I                |
+TESTFP_DETECTOR       |AV-O                |                    |AV-O                |
+TESTFP_DETECTOR       |AV-T                |                    |AV-T                |
+TESTFP_DETECTOR       |AV-K                |                    |AV-K                |
+TESTFP_DETECTOR       |R-F1-O              |                    |R-F1-O              |
+TESTFP_DETECTOR       |R-F1-T              |                    |R-F1-T              |
+TESTFP_DETECTOR       |R-F1-K              |                    |R-F1-K              |
+TESTFP_DETECTOR       |F1-O                |                    |F1-O                |
+TESTFP_DETECTOR       |F1-T                |                    |F1-T                |
+TESTFP_DETECTOR       |F1-K                |                    |F1-K                |
+TESTFP_DETECTOR       |FWR                 |                    |FWR                 |
+TESTFP_DETECTOR       |F2-E                |                    |F2-E                |
+TESTFP_DETECTOR       |F3-O                |                    |F3-O                |
+TESTFP_DETECTOR       |F3-T                |                    |F3-T                |
+TESTFP_DETECTOR       |F3-K                |                    |F3-K                |
+TESTFP_DETECTOR       |A1-B                |                    |A1-B                |
+TESTFP_DETECTOR       |T-GE                |                    |T-GE                |
+TESTFP_DETECTOR       |P8                  |                    |P8                  |
+TESTFP_DETECTOR       |G1                  |                    |G1                  |
+TESTFP_DETECTOR       |G2                  |                    |G2                  |
+TESTFP_DETECTOR       |PA                  |                    |PA                  |
+TESTFP_DETECTOR       |A7                  |                    |A7                  |
+TESTFP_DETECTOR       |NEF                 |                    |NEF                 |
+TESTFP_DETECTOR       |BF                  |                    |BF                  |
+TESTFP_NAC            |FG                  |                    |FG                  |
+TESTFP_NAC            |MAD                 |                    |MAD                 |
+TESTFP_NAC            |ABL                 |                    |ABL                 |
+TESTFP_NAC            |ABS                 |                    |ABS                 |
+TESTFP_NAC            |TST                 |                    |TST                 |
+TESTFP_NAC            |GE                  |                    |GE                  |
+TESTFP_NAC            |G8                  |                    |G8                  |
+TESTFP_NAC            |STE                 |                    |STE                 |
+TESTFP_NAC            |ES                  |                    |ES                  |
+TESTFP_NAC            |K4                  |                    |K4                  |
+TESTFP_NAC            |K3                  |                    |K3                  |
+TESTFP_NAC            |K2                  |                    |K2                  |
+TESTFP_NAC            |G0                  |                    |G0                  |
+TESTFP_NAC            |H1                  |                    |H1                  |
+TESTFP_NAC            |F3                  |                    |F3                  |
+TESTFP_NAC            |F2                  |                    |F2                  |
+TESTFP_NAC            |F1                  |                    |F1                  |
+TESTFP_NAC            |A6                  |                    |A6                  |
+TESTFP_NAC            |A5                  |                    |A5                  |
+TESTFP_NAC            |A4                  |                    |A4                  |
+TESTFP_NAC            |A3                  |                    |A3                  |
+TESTFP_NAC            |A2                  |                    |A2                  |
+TESTFP_NAC            |A1                  |                    |A1                  |
+TESTFP_NAC            |A0                  |                    |A0                  |
+TESTFP_NAC            |PE                  |                    |PE                  |
+TESTFP_NAC            |P2                  |                    |P2                  |
+TESTFP_NAC            |P3                  |                    |P3                  |
+TESTFP_NAC            |P4                  |                    |P4                  |
+TESTFP_NAC            |P5                  |                    |P5                  |
+TESTFP_NAC            |P6                  |                    |P6                  |
+TESTFP_NAC            |TEL                 |                    |TEL                 |
+TESTFP_NAC            |ASP                 |                    |ASP                 |
+TESTFP_NAC            |R-FG                |                    |R-FG                |
+TESTFP_NAC            |R-GE                |                    |R-GE                |
+TESTFP_NAC            |R-G0                |                    |R-G0                |
+TESTFP_NAC            |R-G2                |                    |R-G2                |
+TESTFP_NAC            |R-AL                |                    |R-AL                |
+TESTFP_NAC            |R-G8                |                    |R-G8                |
+TESTFP_NAC            |R-STE               |                    |R-STE               |
+TESTFP_NAC            |R-ES                |                    |R-ES                |
+TESTFP_NAC            |R-K4                |                    |R-K4                |
+TESTFP_NAC            |R-K3                |                    |R-K3                |
+TESTFP_NAC            |R-K2                |                    |R-K2                |
+TESTFP_NAC            |R-H1                |                    |R-H1                |
+TESTFP_NAC            |R-F3                |                    |R-F3                |
+TESTFP_NAC            |R-F2                |                    |R-F2                |
+TESTFP_NAC            |R-F1                |                    |R-F1                |
+TESTFP_NAC            |R-A6                |                    |R-A6                |
+TESTFP_NAC            |R-A5                |                    |R-A5                |
+TESTFP_NAC            |R-A4                |                    |R-A4                |
+TESTFP_NAC            |R-A3                |                    |R-A3                |
+TESTFP_NAC            |R-A2                |                    |R-A2                |
+TESTFP_NAC            |R-A1                |                    |R-A1                |
+TESTFP_NAC            |R-A0                |                    |R-A0                |
+TESTFP_NAC            |R-PE                |                    |R-PE                |
+TESTFP_NAC            |R-P2                |                    |R-P2                |
+TESTFP_NAC            |R-P3                |                    |R-P3                |
+TESTFP_NAC            |R-P4                |                    |R-P4                |
+TESTFP_NAC            |R-P5                |                    |R-P5                |
+TESTFP_NAC            |R-P6                |                    |R-P6                |
+TESTFP_NAC            |R-TEL               |                    |R-TEL               |
+TESTFP_NAC            |R-ASP               |                    |R-ASP               |
+TESTFP_NAC            |GE-TD               |                    |GE-TD               |
+TESTFP_NAC            |GE-TM               |                    |GE-TM               |
+TESTFP_NAC            |GE-O                |                    |GE-O                |
+TESTFP_NAC            |GE-K                |                    |GE-K                |
+TESTFP_NAC            |V2                  |                    |V2                  |
+TESTFP_NAC            |V1                  |                    |V1                  |
+TESTFP_NAC            |V0                  |                    |V0                  |
+TESTFP_NAC            |AV-I                |                    |AV-I                |
+TESTFP_NAC            |AV-O                |                    |AV-O                |
+TESTFP_NAC            |AV-T                |                    |AV-T                |
+TESTFP_NAC            |AV-K                |                    |AV-K                |
+TESTFP_NAC            |R-F1-O              |                    |R-F1-O              |
+TESTFP_NAC            |R-F1-T              |                    |R-F1-T              |
+TESTFP_NAC            |R-F1-K              |                    |R-F1-K              |
+TESTFP_NAC            |F1-O                |                    |F1-O                |
+TESTFP_NAC            |F1-T                |                    |F1-T                |
+TESTFP_NAC            |F1-K                |                    |F1-K                |
+TESTFP_NAC            |FWR                 |                    |FWR                 |
+TESTFP_NAC            |F2-E                |                    |F2-E                |
+TESTFP_NAC            |F3-O                |                    |F3-O                |
+TESTFP_NAC            |F3-T                |                    |F3-T                |
+TESTFP_NAC            |F3-K                |                    |F3-K                |
+TESTFP_NAC            |A1-B                |                    |A1-B                |
+TESTFP_NAC            |T-GE                |                    |T-GE                |
+TESTFP_NAC            |P8                  |                    |P8                  |
+TESTFP_NAC            |G1                  |                    |G1                  |
+TESTFP_NAC            |G2                  |                    |G2                  |
+TESTFP_NAC            |PA                  |                    |PA                  |
+TESTFP_NAC            |A7                  |                    |A7                  |
+TESTFP_NAC            |NEF                 |                    |NEF                 |
+TESTFP_NAC            |BF                  |                    |BF                  |
+

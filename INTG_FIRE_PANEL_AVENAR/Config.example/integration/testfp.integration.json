@@ -1,0 +1,15 @@
+{
+	"version": 1,
+	"reset_timeout": 60,
+	"structure":
+	[{
+		"parent": "INTEGRATION",
+		"type": "TESTFP_FIRE_PANEL",
+		"children":
+		[{
+			"type": "TESTFP_DETECTOR"
+		},{
+			"type": "TESTFP_NAC"
+		}]
+	}]
+}
