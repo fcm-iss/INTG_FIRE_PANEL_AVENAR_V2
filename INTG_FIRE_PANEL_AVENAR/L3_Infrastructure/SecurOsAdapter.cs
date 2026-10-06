@@ -29,6 +29,7 @@ namespace INTG_FIRE_PANEL_AVENAR
         private string _idUinP;
 
         public event Action<SecurOsCommand> CommandReceived;
+        public event Action                 ResetRequested;
 
         private SecurOsAdapter(IidkManager securosIidkManager, string host, string port, string idUinP)
         {
@@ -244,6 +245,12 @@ namespace INTG_FIRE_PANEL_AVENAR
                     return;
                 }
 
+                if (IsIntegrationReset(message))
+                {
+                    ResetRequested?.Invoke();
+                    return;
+                }
+
                 if (IsSystemMessage(message)) return;
 
                 CommandReceived?.Invoke(cmd);
@@ -258,6 +265,11 @@ namespace INTG_FIRE_PANEL_AVENAR
             => string.Equals(message.Type, "INTEGRATION", StringComparison.OrdinalIgnoreCase)
             && string.Equals(message.Action, "DELETE", StringComparison.OrdinalIgnoreCase)
             && string.Equals(message.Id, _idUinP, StringComparison.OrdinalIgnoreCase);
+
+        private bool IsIntegrationReset(SecurosIIDK.Message message)
+            => string.Equals(message.Type,   "INTEGRATION", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(message.Action, "RESET",       StringComparison.OrdinalIgnoreCase)
+            && string.Equals(message.Id,      _idUinP,      StringComparison.OrdinalIgnoreCase);
 
         private static bool IsSystemMessage(SecurosIIDK.Message message)
             => string.Equals(message.Type, "INTEGRATION", StringComparison.OrdinalIgnoreCase)

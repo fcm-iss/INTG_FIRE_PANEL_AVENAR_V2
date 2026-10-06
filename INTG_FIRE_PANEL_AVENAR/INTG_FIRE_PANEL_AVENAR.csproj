@@ -100,6 +100,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App.cs" />
+    <Compile Include="L2_Application\DetectOpcTreeChangesUseCase.cs" />
     <Compile Include="L2_Application\ExecuteSecurOsCommandUseCase.cs" />
     <Compile Include="L2_Application\OpcTreeReader.cs" />
     <Compile Include="L2_Application\SecurOsFileExporter.cs" />
@@ -107,6 +108,8 @@
     <Compile Include="L1_Domain\IOpcGateway.cs" />
     <Compile Include="L1_Domain\ISecurOsGateway.cs" />
     <Compile Include="L1_Domain\ValueObjects\ItemState.cs" />
+    <Compile Include="L1_Domain\ValueObjects\OpcTreeChanges.cs" />
+    <Compile Include="L1_Domain\ValueObjects\RenamedObject.cs" />
     <Compile Include="L1_Domain\ValueObjects\SecurOsObjectDefinition.cs" />
     <Compile Include="L1_Domain\ValueObjects\SecurOsCommand.cs" />
     <Compile Include="L3_Infrastructure\OpcAdapter.cs" />
