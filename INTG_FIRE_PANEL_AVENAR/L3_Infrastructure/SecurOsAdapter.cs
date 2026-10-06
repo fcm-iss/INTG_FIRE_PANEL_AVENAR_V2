@@ -23,6 +23,7 @@ namespace INTG_FIRE_PANEL_AVENAR
         private readonly IidkManager _Securos;
         private bool          _disposed;
         private volatile bool _isReconnecting;
+        private volatile bool _isInitialized;
         private string        _host;
         private string        _port;
         private string        _idUinP;
@@ -36,9 +37,11 @@ namespace INTG_FIRE_PANEL_AVENAR
             _port    = port;
             _idUinP  = idUinP;
             _Securos.OnSecurOSMessage      += OnMessageReceived;
+            // La reconexión automática solo aplica tras la conexión inicial; antes de eso
+            // Connect() ya reintenta, y dos SyncConnect simultáneos hacen caer iidk.dll.
             _Securos.OnConnectionStateChanged += state =>
             {
-                if (!state) StartReconnectionInBackground("Conexión TCP perdida");
+                if (!state && _isInitialized) StartReconnectionInBackground("Conexión TCP perdida");
             };
         }
 
@@ -65,6 +68,10 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern bool SetDllDirectory(string lpPathName);
+
+        // Misma firma que SecurosIIDK.IidkWrapper.SendMsg (internal en el SDK); IidkManager.SendMessage descarta el rc.
+        [DllImport("iidk.dll", EntryPoint = "SendMsg", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+        private static extern int IidkSendMsg(string id, string msg);
 
         private static void ConfigureIidkDllSearchPath()
         {
@@ -100,6 +107,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             WaitForConnection(iidkManager, host, port, id);
             Console.WriteLine("[SecurOS]\t\tVerificando punto de integración...");
             connector.WaitForInitializationComplete();
+            connector._isInitialized = true;
             return connector;
         }
 
@@ -360,8 +368,8 @@ namespace INTG_FIRE_PANEL_AVENAR
             }
 
             var msg = $"CORE|1|CREATE_OBJECT|objtype<{objType}>,objid<{objId}>,name<{name}>,parent_id<{parentId}>";
-            _Securos.SendMessage(msg);
-            Console.WriteLine($"[SecurOS]\tCREATE_OBJECT -> {objType} id={objId}");
+            var rc  = IidkSendMsg(_idUinP, msg);
+            Console.WriteLine($"[SecurOS]\tCREATE_OBJECT -> {objType} id={objId} rc={rc}");
         }
 
         #endregion

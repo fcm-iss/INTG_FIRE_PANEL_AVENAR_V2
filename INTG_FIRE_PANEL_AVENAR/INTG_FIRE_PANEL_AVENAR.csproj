@@ -81,10 +81,17 @@
     <Reference Include="System.Web.Extensions" />
     <Reference Include="System.ServiceProcess" />
     <Reference Include="System.Xml" />
-    <Reference Include="ISS.SecurOS.idk">
+    <!-- El wrapper del IIDK depende de la arquitectura: x64 usa el de SecurOS\bin64, el resto el de 32 bits -->
+    <Reference Include="ISS.SecurOS.idk" Condition="'$(Platform)' == 'x64'">
+      <HintPath>Libs\Securos\x64\ISS.SecurOS.idk.dll</HintPath>
+    </Reference>
+    <Reference Include="ISS.SecurOS.idk" Condition="'$(Platform)' != 'x64'">
       <HintPath>Libs\Securos\ISS.SecurOS.idk.dll</HintPath>
     </Reference>
-    <Reference Include="log4net, Version=1.2.10.0, Culture=neutral, PublicKeyToken=1b44e1d426115821">
+    <Reference Include="log4net, Version=1.2.10.0, Culture=neutral, PublicKeyToken=1b44e1d426115821" Condition="'$(Platform)' == 'x64'">
+      <HintPath>C:\Program Files (x86)\ISS\SecurOS\bin64\log4net.dll</HintPath>
+    </Reference>
+    <Reference Include="log4net, Version=1.2.10.0, Culture=neutral, PublicKeyToken=1b44e1d426115821" Condition="'$(Platform)' != 'x64'">
       <HintPath>C:\Program Files (x86)\ISS\SecurOS\log4net.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed">
@@ -110,10 +117,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="app.manifest" />
-    <None Include="bin\x64\Debug\Config\App.config" />
-    <Content Include="bin\x64\Debug\Config\opc_states.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Include="Config\App.config" />
     <Content Include="Config\opc_states.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -131,7 +134,9 @@
     <Content Include="Libs\OPC\OpcNetApi.Com.dll" />
     <Content Include="Libs\OPC\OpcNetApi.dll" />
     <Content Include="Libs\OPC\OpcRcw.Comn.dll" />
-    <Content Include="Libs\Securos\ISS.SecurOS.idk.dll" />
+    <!-- Condicionados igual que la referencia: MSBuild resuelve primero contra estos ítems antes que el HintPath -->
+    <Content Include="Libs\Securos\ISS.SecurOS.idk.dll" Condition="'$(Platform)' != 'x64'" />
+    <Content Include="Libs\Securos\x64\ISS.SecurOS.idk.dll" Condition="'$(Platform)' == 'x64'" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
