@@ -20,7 +20,10 @@ namespace INTG_FIRE_PANEL_AVENAR
             var mode = Array.Exists(args, a => a == "--integration") ? AppMode.Integration
                      : Array.Exists(args, a => a == "--create-securos-objects") ? AppMode.CreateSecurOsObjects
                      : AppMode.Monitor;
+            //debug
+            //habilita una de los modos para pruebas sin argumentos
             //mode = AppMode.Integration;
+            // mode = AppMode.CreateSecurOsObjects;
 
             using (var opcManager = new OpcAdapter())
             {
@@ -173,20 +176,20 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         private static string ExportOpcFiles(OpcAdapter opc, string selectedUrl)
         {
-            var ddiPrefix    = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
-            var exporter     = opc.BuildSecurOsFileExporter(ddiPrefix, selectedUrl);
-            var baseDir      = ResolveOutputBaseDir();
+            var ddiPrefix = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
+            var exporter = opc.BuildSecurOsFileExporter(ddiPrefix, selectedUrl);
+            var baseDir = ResolveOutputBaseDir();
             var allowedTypes = ResolveAllowedTypes();
-            var prefixClean  = ddiPrefix.TrimEnd('_').ToLower();
+            var prefixClean = ddiPrefix.TrimEnd('_').ToLower();
 
-            var treeDir        = Path.Combine(baseDir, "Config", "tree");
+            var treeDir = Path.Combine(baseDir, "Config", "tree");
             var integrationDir = Path.Combine(baseDir, "Config", "integration");
 
-            var exporterPath    = Path.Combine(treeDir,        "OPCTree.json");
-            var commandPath     = Path.Combine(treeDir,        "commands.json");
+            var exporterPath = Path.Combine(treeDir, "OPCTree.json");
+            var commandPath = Path.Combine(treeDir, "commands.json");
             var integrationPath = Path.Combine(integrationDir, $"{prefixClean}.integration.json");
-            var ddiPath         = Path.Combine(integrationDir, $"securos.{prefixClean}.ddi");
-            var dbiPath         = Path.Combine(integrationDir, $"securos.{prefixClean}.dbi");
+            var ddiPath = Path.Combine(integrationDir, $"securos.{prefixClean}.ddi");
+            var dbiPath = Path.Combine(integrationDir, $"securos.{prefixClean}.dbi");
 
             if (!ConfirmOverwriteIfAnyExists(new[] { exporterPath, commandPath, integrationPath, ddiPath, dbiPath }))
             {
@@ -247,15 +250,15 @@ namespace INTG_FIRE_PANEL_AVENAR
             if (!answer.Equals("s", StringComparison.OrdinalIgnoreCase) &&
                 !answer.Equals("si", StringComparison.OrdinalIgnoreCase)) return false;
 
-            var baseDir     = ResolveOutputBaseDir();
+            var baseDir = ResolveOutputBaseDir();
             var prefixClean = (ConfigurationManager.AppSettings["ddi_prefix"] ?? "").TrimEnd('_').ToLower();
-            var intDir      = Path.Combine(baseDir, "Config", "integration");
+            var intDir = Path.Combine(baseDir, "Config", "integration");
 
-            var securosDir     = ConfigurationManager.AppSettings["securos_install_dir"]     ?? "";
+            var securosDir = ConfigurationManager.AppSettings["securos_install_dir"] ?? "";
             var integrationDir = ConfigurationManager.AppSettings["securos_integration_dir"] ?? "";
 
-            var ddiOk  = CopyFileToDirectory(Path.Combine(intDir, $"securos.{prefixClean}.ddi"),      securosDir);
-            var dbiOk  = CopyFileToDirectory(Path.Combine(intDir, $"securos.{prefixClean}.dbi"),      securosDir);
+            var ddiOk = CopyFileToDirectory(Path.Combine(intDir, $"securos.{prefixClean}.ddi"), securosDir);
+            var dbiOk = CopyFileToDirectory(Path.Combine(intDir, $"securos.{prefixClean}.dbi"), securosDir);
             var jsonOk = CopyFileToDirectory(Path.Combine(intDir, $"{prefixClean}.integration.json"), integrationDir);
 
             if (!ddiOk || !dbiOk || !jsonOk)
@@ -314,7 +317,7 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         private static ServiceController FindServiceByDisplayName(string serviceName)
         {
-            try   { return new ServiceController(serviceName); }
+            try { return new ServiceController(serviceName); }
             catch { return null; }
         }
 
@@ -428,7 +431,7 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         private static void StartMonitoring(IOpcGateway opc, ISecurOsGateway securOs, string exporterPath)
         {
-            var nodeIdMap      = OpcTreeReader.BuildNodeIdMapFromTreeJson(exporterPath);
+            var nodeIdMap = OpcTreeReader.BuildNodeIdMapFromTreeJson(exporterPath);
             var commandNodeMap = OpcTreeReader.BuildCommandNodeMapFromTreeJson(exporterPath);
 
             if (!opc.StartMonitoring(nodeIdMap, ResolveUpdateRateMs()))
@@ -439,12 +442,12 @@ namespace INTG_FIRE_PANEL_AVENAR
 
             // La cola garantiza que WriteCommand se ejecuta en el hilo STA principal,
             // ya que los objetos COM de OPC DA solo pueden llamarse desde el hilo donde fueron creados.
-            var writeQueue  = new BlockingCollection<string>();
-            var syncState   = new SyncItemStateUseCase(securOs);
+            var writeQueue = new BlockingCollection<string>();
+            var syncState = new SyncItemStateUseCase(securOs);
             var execCommand = new ExecuteSecurOsCommandUseCase(xml => writeQueue.TryAdd(xml), commandNodeMap);
 
-            opc.StateChanged        += changes => syncState.Execute(changes);
-            securOs.CommandReceived += cmd     => execCommand.Execute(cmd);
+            opc.StateChanged += changes => syncState.Execute(changes);
+            securOs.CommandReceived += cmd => execCommand.Execute(cmd);
 
             RegisterShutdownHandlers(writeQueue);
 

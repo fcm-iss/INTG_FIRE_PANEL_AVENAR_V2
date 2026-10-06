@@ -21,22 +21,22 @@ namespace INTG_FIRE_PANEL_AVENAR
         #region Campos y Constructor
 
         private readonly IidkManager _Securos;
-        private bool          _disposed;
+        private bool _disposed;
         private volatile bool _isReconnecting;
         private volatile bool _isInitialized;
-        private string        _host;
-        private string        _port;
-        private string        _idUinP;
+        private string _host;
+        private string _port;
+        private string _idUinP;
 
         public event Action<SecurOsCommand> CommandReceived;
 
         private SecurOsAdapter(IidkManager securosIidkManager, string host, string port, string idUinP)
         {
             _Securos = securosIidkManager;
-            _host    = host;
-            _port    = port;
-            _idUinP  = idUinP;
-            _Securos.OnSecurOSMessage      += OnMessageReceived;
+            _host = host;
+            _port = port;
+            _idUinP = idUinP;
+            _Securos.OnSecurOSMessage += OnMessageReceived;
             // La reconexión automática solo aplica tras la conexión inicial; antes de eso
             // Connect() ya reintenta, y dos SyncConnect simultáneos hacen caer iidk.dll.
             _Securos.OnConnectionStateChanged += state =>
@@ -97,7 +97,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             ConfigureIidkDllSearchPath();
             var host = ConfigurationManager.AppSettings["securos_host"] ?? "127.0.0.1";
             var port = ConfigurationManager.AppSettings["securos_port"] ?? "3000";
-            var id   = ConfigurationManager.AppSettings["idUinP"]       ?? "1";
+            var id = ConfigurationManager.AppSettings["idUinP"] ?? "1";
             Console.WriteLine($"[SecurOS]\t\tidUinP{id}");
             var iidkManager = new IidkManager();
 
@@ -113,7 +113,7 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         private static void WaitForConnection(IidkManager manager, string host, string port, string id)
         {
-            const int TimeoutMs    = 5000;
+            const int TimeoutMs = 5000;
             const int RetryDelayMs = 2000;
 
             int attempt = 0;
@@ -147,7 +147,8 @@ namespace INTG_FIRE_PANEL_AVENAR
             {
                 try { manager.SyncConnect(host, port, id); }
                 catch (Exception ex) { Console.WriteLine($"[SecurOS]\tError en SyncConnect: {ex.Message}"); }
-            }) { IsBackground = true };
+            })
+            { IsBackground = true };
 
             connectThread.Start();
             bool signaled = connected.Wait(timeoutMs);
@@ -166,9 +167,9 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         private void WaitForInitializationComplete()
         {
-            const int TcpTimeoutMs  = 5000;
+            const int TcpTimeoutMs = 5000;
             const int InitTimeoutMs = 3000;
-            const int RetryDelayMs  = 2000;
+            const int RetryDelayMs = 2000;
             int attempt = 0;
 
             while (!_disposed)
@@ -189,7 +190,7 @@ namespace INTG_FIRE_PANEL_AVENAR
 
                 SecurosIIDK.MessagesListener onMessage = msg =>
                 {
-                    if (string.Equals(msg.Type,   "SLAVE",                  StringComparison.OrdinalIgnoreCase) &&
+                    if (string.Equals(msg.Type, "SLAVE", StringComparison.OrdinalIgnoreCase) &&
                         string.Equals(msg.Action, "INITIALIZATION_COMPLETE", StringComparison.OrdinalIgnoreCase))
                         try { initReceived.Set(); } catch (ObjectDisposedException) { }
                 };
@@ -218,9 +219,10 @@ namespace INTG_FIRE_PANEL_AVENAR
             Console.WriteLine($"[SecurOS]\t{reason} — iniciando reconexión...");
             new Thread(() =>
             {
-                try   { WaitForInitializationComplete(); }
+                try { WaitForInitializationComplete(); }
                 finally { _isReconnecting = false; }
-            }) { IsBackground = true }.Start();
+            })
+            { IsBackground = true }.Start();
         }
 
         #endregion
@@ -253,14 +255,14 @@ namespace INTG_FIRE_PANEL_AVENAR
         }
 
         private bool IsIntegrationDeleted(SecurosIIDK.Message message)
-            => string.Equals(message.Type,   "INTEGRATION", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(message.Action, "DELETE",       StringComparison.OrdinalIgnoreCase)
-            && string.Equals(message.Id,      _idUinP,       StringComparison.OrdinalIgnoreCase);
+            => string.Equals(message.Type, "INTEGRATION", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(message.Action, "DELETE", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(message.Id, _idUinP, StringComparison.OrdinalIgnoreCase);
 
         private static bool IsSystemMessage(SecurosIIDK.Message message)
-            => string.Equals(message.Type,   "INTEGRATION", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(message.Type,   "SLAVE",        StringComparison.OrdinalIgnoreCase)
-            || string.Equals(message.Action, "SETUP",        StringComparison.OrdinalIgnoreCase);
+            => string.Equals(message.Type, "INTEGRATION", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(message.Type, "SLAVE", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(message.Action, "SETUP", StringComparison.OrdinalIgnoreCase);
 
         private static SecurOsCommand BuildCommand(SecurosIIDK.Message iidk)
             => new SecurOsCommand(iidk.Type ?? "", iidk.Id ?? "", iidk.Action ?? "", BuildParamsString(iidk.Params));
@@ -304,7 +306,7 @@ namespace INTG_FIRE_PANEL_AVENAR
         private static bool ParseClientHandle(string handle, out string objType, out string securosId)
         {
             objType = null;
-            securosId   = null;
+            securosId = null;
 
             if (string.IsNullOrEmpty(handle)) return false;
 
@@ -312,7 +314,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             if (parts.Length != 2) return false;
 
             objType = parts[0];
-            securosId   = parts[1];
+            securosId = parts[1];
             return !string.IsNullOrEmpty(objType) && !string.IsNullOrEmpty(securosId);
         }
 
@@ -335,7 +337,7 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         public void CreateObjectsInSecurOs(string treeJsonPath, string ddiPrefix)
         {
-            var definitions         = OpcTreeReader.ExtractObjectDefinitionsFromTree(treeJsonPath, ddiPrefix);
+            var definitions = OpcTreeReader.ExtractObjectDefinitionsFromTree(treeJsonPath, ddiPrefix);
             var integrationParentId = ConfigurationManager.AppSettings["idUinP"] ?? "1";
 
             Console.WriteLine($"[SecurOS]\tUsando parent_id para paneles: {integrationParentId}");
@@ -368,8 +370,8 @@ namespace INTG_FIRE_PANEL_AVENAR
             }
 
             var msg = $"CORE|1|CREATE_OBJECT|objtype<{objType}>,objid<{objId}>,name<{name}>,parent_id<{parentId}>";
-            var rc  = IidkSendMsg(_idUinP, msg);
-            Console.WriteLine($"[SecurOS]\tCREATE_OBJECT -> {objType} id={objId} rc={rc}");
+            var returnCode = IidkSendMsg(_idUinP, msg);
+            Console.WriteLine($"[SecurOS]\tCREATE_OBJECT -> {objType} id={objId} rc={returnCode}");
         }
 
         #endregion
@@ -387,7 +389,7 @@ namespace INTG_FIRE_PANEL_AVENAR
                 return new Dictionary<int, string>();
             }
 
-            var json    = File.ReadAllText(path, new UTF8Encoding(false));
+            var json = File.ReadAllText(path, new UTF8Encoding(false));
             var entries = new JavaScriptSerializer().Deserialize<List<Dictionary<string, object>>>(json);
             return BuildLzNameMap(entries);
         }
