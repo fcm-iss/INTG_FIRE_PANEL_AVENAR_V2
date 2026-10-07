@@ -23,8 +23,12 @@ namespace INTG_FIRE_PANEL_AVENAR
         private const string LegacyInitialSetupArg   = "--integration";
         private const string CreateSecurOsObjectsArg = "--create-securos-objects";
 
+        private static readonly string[] KnownArgs = { InitialSetupArg, LegacyInitialSetupArg, CreateSecurOsObjectsArg };
+
         public void Run(string[] args)
         {
+            if (!ValidateArgs(args)) return;
+
             var mode = ResolveMode(args);
             //debug
             //habilita una de los modos para pruebas sin argumentos
@@ -40,6 +44,25 @@ namespace INTG_FIRE_PANEL_AVENAR
                 else
                     RunMonitorFlow(opcManager);
             }
+        }
+
+        // Un argumento mal escrito no debe caer en silencio al modo monitoreo.
+        private static bool ValidateArgs(string[] args)
+        {
+            var unknownArgs = Array.FindAll(args, a => Array.IndexOf(KnownArgs, a) < 0);
+            if (unknownArgs.Length == 0) return true;
+
+            LogError($"Argumento(s) no reconocido(s): {string.Join(" ", unknownArgs)}");
+            PrintUsage();
+            return false;
+        }
+
+        private static void PrintUsage()
+        {
+            Console.WriteLine("[APP]\t\tModos disponibles:");
+            Console.WriteLine($"         {InitialSetupArg,-26} Configuración inicial: descubre el OPC, genera y despliega los archivos de integración.");
+            Console.WriteLine($"         {CreateSecurOsObjectsArg,-26} Crea en SecurOS los objetos definidos en Config\\tree\\OPCTree.json.");
+            Console.WriteLine($"         {"(sin argumentos)",-26} Monitoreo: sincroniza estados y comandos entre el panel y SecurOS.");
         }
 
         private static AppMode ResolveMode(string[] args)
