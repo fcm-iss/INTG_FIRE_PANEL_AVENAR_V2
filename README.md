@@ -145,8 +145,6 @@ cd INTG_FIRE_PANEL_AVENAR\bin\Release
 .\INTG_FIRE_PANEL_AVENAR.exe --initial-setup
 ```
 
-> `--integration` sigue aceptándose como alias obsoleto: muestra un aviso y ejecuta este mismo modo.
-
 **Diagrama de flujo:**
 
 ```
@@ -217,7 +215,7 @@ INTG_FIRE_PANEL_AVENAR.exe
 **Flujo:**
 
 ```
-1. Lee OPCTree.json desde Config\tree\
+1. Lee OPCTree.json desde Config\opc-model\
         → Extrae la URL del servidor OPC guardada en --initial-setup
         → Conecta directamente al servidor sin descubrimiento
 2. [APP] Verifica que el servicio SecurOS esté activo
@@ -549,8 +547,8 @@ INTG_FIRE_PANEL_AVENAR/
 ├── Config/
 │   ├── App.config                      Configuración del puesto
 │   ├── opc_states.json                 Mapeo de valores OPC → nombres de estado
-│   ├── tree/                           Árbol exportado del servidor OPC (OPCTree.json)
-│   └── integration/                    Archivos DDI/DBI/JSON para SecurOS
+│   ├── opc-model/                      Árbol exportado del servidor OPC (OPCTree.json, commands.json)
+│   └── securos-integration-files/      Archivos DDI/DBI/JSON para SecurOS
 │
 ├── Libs/OPC/                           DLLs OPC DA Classic (OpcNetApi, OpcCom)
 └── Properties/

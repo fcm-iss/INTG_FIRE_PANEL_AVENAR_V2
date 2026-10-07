@@ -20,10 +20,13 @@ namespace INTG_FIRE_PANEL_AVENAR
         private enum AppMode { InitialSetup, Monitor, CreateSecurOsObjects }
 
         private const string InitialSetupArg         = "--initial-setup";
-        private const string LegacyInitialSetupArg   = "--integration";
         private const string CreateSecurOsObjectsArg = "--create-securos-objects";
 
-        private static readonly string[] KnownArgs = { InitialSetupArg, LegacyInitialSetupArg, CreateSecurOsObjectsArg };
+        private static readonly string[] KnownArgs = { InitialSetupArg, CreateSecurOsObjectsArg };
+
+        // Carpetas de archivos generados dentro de Config\.
+        private const string OpcModelDirName         = "opc-model";
+        private const string IntegrationFilesDirName = "securos-integration-files";
 
         public void Run(string[] args)
         {
@@ -61,7 +64,7 @@ namespace INTG_FIRE_PANEL_AVENAR
         {
             Console.WriteLine("[APP]\t\tModos disponibles:");
             Console.WriteLine($"         {InitialSetupArg,-26} Configuración inicial: descubre el OPC, genera y despliega los archivos de integración.");
-            Console.WriteLine($"         {CreateSecurOsObjectsArg,-26} Crea en SecurOS los objetos definidos en Config\\tree\\OPCTree.json.");
+            Console.WriteLine($"         {CreateSecurOsObjectsArg,-26} Crea en SecurOS los objetos definidos en Config\\{OpcModelDirName}\\OPCTree.json.");
             Console.WriteLine($"         {"(sin argumentos)",-26} Monitoreo: sincroniza estados y comandos entre el panel y SecurOS.");
         }
 
@@ -69,12 +72,6 @@ namespace INTG_FIRE_PANEL_AVENAR
         {
             if (Array.Exists(args, a => a == InitialSetupArg))
                 return AppMode.InitialSetup;
-
-            if (Array.Exists(args, a => a == LegacyInitialSetupArg))
-            {
-                Console.WriteLine($"[APP]\t\t{LegacyInitialSetupArg} está obsoleto, use {InitialSetupArg}.");
-                return AppMode.InitialSetup;
-            }
 
             if (Array.Exists(args, a => a == CreateSecurOsObjectsArg))
                 return AppMode.CreateSecurOsObjects;
@@ -224,12 +221,11 @@ namespace INTG_FIRE_PANEL_AVENAR
         {
             var ddiPrefix = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
             var exporter = opc.BuildSecurOsFileExporter(ddiPrefix, selectedUrl);
-            var baseDir = ResolveOutputBaseDir();
             var allowedTypes = ResolveAllowedTypes();
             var prefixClean = ddiPrefix.TrimEnd('_').ToLower();
 
-            var treeDir = Path.Combine(baseDir, "Config", "tree");
-            var integrationDir = Path.Combine(baseDir, "Config", "integration");
+            var treeDir = ResolveOpcModelDir();
+            var integrationDir = ResolveIntegrationFilesDir();
 
             var exporterPath = Path.Combine(treeDir, "OPCTree.json");
             var commandPath = Path.Combine(treeDir, "commands.json");
@@ -296,9 +292,8 @@ namespace INTG_FIRE_PANEL_AVENAR
             if (!answer.Equals("s", StringComparison.OrdinalIgnoreCase) &&
                 !answer.Equals("si", StringComparison.OrdinalIgnoreCase)) return false;
 
-            var baseDir = ResolveOutputBaseDir();
             var prefixClean = (ConfigurationManager.AppSettings["ddi_prefix"] ?? "").TrimEnd('_').ToLower();
-            var intDir = Path.Combine(baseDir, "Config", "integration");
+            var intDir = ResolveIntegrationFilesDir();
 
             var securosDir = ConfigurationManager.AppSettings["securos_install_dir"] ?? "";
             var integrationDir = ConfigurationManager.AppSettings["securos_integration_dir"] ?? "";
@@ -673,17 +668,23 @@ namespace INTG_FIRE_PANEL_AVENAR
         #region Utilidades
         private static string FindExistingTreeFile()
         {
-            var path = Path.Combine(ResolveOutputBaseDir(), "Config", "tree", "OPCTree.json");
+            var path = Path.Combine(ResolveOpcModelDir(), "OPCTree.json");
 
             if (!File.Exists(path))
             {
-                LogError($"OPCTree.json no encontrado en Config\\tree\\. Ejecute primero con {InitialSetupArg} para generarlo.");
+                LogError($"OPCTree.json no encontrado en Config\\{OpcModelDirName}\\. Ejecute primero con {InitialSetupArg} para generarlo.");
                 return null;
             }
 
-            Console.WriteLine("[APP]\t\tUsando archivo existente: Config\\tree\\OPCTree.json");
+            Console.WriteLine($"[APP]\t\tUsando archivo existente: Config\\{OpcModelDirName}\\OPCTree.json");
             return path;
         }
+
+        private static string ResolveConfigSubDir(string dirName) =>
+            Path.Combine(ResolveOutputBaseDir(), "Config", dirName);
+
+        private static string ResolveOpcModelDir()         => ResolveConfigSubDir(OpcModelDirName);
+        private static string ResolveIntegrationFilesDir() => ResolveConfigSubDir(IntegrationFilesDirName);
 
         private static void FlushConsoleInputBuffer()
         {
