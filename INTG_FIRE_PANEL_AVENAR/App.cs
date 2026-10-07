@@ -20,14 +20,14 @@ namespace INTG_FIRE_PANEL_AVENAR
     {
         private enum AppMode { InitialSetup, Monitor, CreateSecurOsObjects, Test }
 
-        private const string InitialSetupArg         = "--initial-setup";
+        private const string InitialSetupArg = "--initial-setup";
         private const string CreateSecurOsObjectsArg = "--create-securos-objects";
-        private const string TestArg                 = "--test";
+        private const string TestArg = "--test";
 
         private static readonly string[] KnownArgs = { InitialSetupArg, CreateSecurOsObjectsArg, TestArg };
 
         // Carpetas de archivos generados dentro de Config\.
-        private const string OpcModelDirName         = "opc-model";
+        private const string OpcModelDirName = "opc-model";
         private const string IntegrationFilesDirName = "securos-integration-files";
 
         public void Run(string[] args)
@@ -39,7 +39,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             //habilita una de los modos para pruebas sin argumentos
             //mode = AppMode.InitialSetup;
             //mode = AppMode.CreateSecurOsObjects;
-            mode = AppMode.Test;
+            // mode = AppMode.Test;
 
 
             using (var opcManager = new OpcAdapter())
@@ -566,9 +566,9 @@ namespace INTG_FIRE_PANEL_AVENAR
             try
             {
                 Console.WriteLine("[APP]\t\tRESET recibido — releyendo árbol OPC...");
-                var ddiPrefix     = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
+                var ddiPrefix = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
                 var refreshedPath = ExportRefreshedTree(opc, exporterPath, ddiPrefix);
-                var changes       = new DetectOpcTreeChangesUseCase(ddiPrefix).Execute(exporterPath, refreshedPath);
+                var changes = new DetectOpcTreeChangesUseCase(ddiPrefix).Execute(exporterPath, refreshedPath);
                 WriteChangesReport(changes, Path.Combine(Path.GetDirectoryName(exporterPath), "OPCTree.changes.json"));
             }
             catch (Exception ex)
@@ -583,7 +583,7 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         private static string ExportRefreshedTree(OpcAdapter opc, string exporterPath, string ddiPrefix)
         {
-            var serverUrl     = OpcTreeReader.ReadServerUrlFromTreeJson(exporterPath);
+            var serverUrl = OpcTreeReader.ReadServerUrlFromTreeJson(exporterPath);
             var refreshedPath = Path.Combine(Path.GetDirectoryName(exporterPath), "OPCTree.reset.json");
             opc.BuildSecurOsFileExporter(ddiPrefix, serverUrl).ExportOpcTreeWithPropertiesToJson(refreshedPath);
             return refreshedPath;
@@ -693,7 +693,7 @@ namespace INTG_FIRE_PANEL_AVENAR
         private static string ResolveConfigSubDir(string dirName) =>
             Path.Combine(ResolveOutputBaseDir(), "Config", dirName);
 
-        private static string ResolveOpcModelDir()         => ResolveConfigSubDir(OpcModelDirName);
+        private static string ResolveOpcModelDir() => ResolveConfigSubDir(OpcModelDirName);
         private static string ResolveIntegrationFilesDir() => ResolveConfigSubDir(IntegrationFilesDirName);
 
         private static string ResolveIntegrationJsonPath()
