@@ -1,6 +1,7 @@
 using INTG_FIRE_PANEL_AVENAR.Application;
 using INTG_FIRE_PANEL_AVENAR.Domain;
 using INTG_FIRE_PANEL_AVENAR.Domain.ValueObjects;
+using INTG_FIRE_PANEL_AVENAR.Flows;
 using INTG_FIRE_PANEL_AVENAR.Infrastructure;
 using System;
 using System.Collections.Concurrent;
@@ -17,12 +18,13 @@ namespace INTG_FIRE_PANEL_AVENAR
 {
     internal class App
     {
-        private enum AppMode { InitialSetup, Monitor, CreateSecurOsObjects }
+        private enum AppMode { InitialSetup, Monitor, CreateSecurOsObjects, Test }
 
         private const string InitialSetupArg         = "--initial-setup";
         private const string CreateSecurOsObjectsArg = "--create-securos-objects";
+        private const string TestArg                 = "--test";
 
-        private static readonly string[] KnownArgs = { InitialSetupArg, CreateSecurOsObjectsArg };
+        private static readonly string[] KnownArgs = { InitialSetupArg, CreateSecurOsObjectsArg, TestArg };
 
         // Carpetas de archivos generados dentro de Config\.
         private const string OpcModelDirName         = "opc-model";
@@ -36,7 +38,9 @@ namespace INTG_FIRE_PANEL_AVENAR
             //debug
             //habilita una de los modos para pruebas sin argumentos
             //mode = AppMode.InitialSetup;
-            // mode = AppMode.CreateSecurOsObjects;
+            //mode = AppMode.CreateSecurOsObjects;
+            mode = AppMode.Test;
+
 
             using (var opcManager = new OpcAdapter())
             {
@@ -44,6 +48,8 @@ namespace INTG_FIRE_PANEL_AVENAR
                     RunInitialSetupFlow(opcManager);
                 else if (mode == AppMode.CreateSecurOsObjects)
                     RunCreateSecurOsObjectsFlow();
+                else if (mode == AppMode.Test)
+                    new SecurOsCommandTestFlow(ResolveIntegrationJsonPath()).Run();
                 else
                     RunMonitorFlow(opcManager);
             }
@@ -65,6 +71,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             Console.WriteLine("[APP]\t\tModos disponibles:");
             Console.WriteLine($"         {InitialSetupArg,-26} Configuración inicial: descubre el OPC, genera y despliega los archivos de integración.");
             Console.WriteLine($"         {CreateSecurOsObjectsArg,-26} Crea en SecurOS los objetos definidos en Config\\{OpcModelDirName}\\OPCTree.json.");
+            Console.WriteLine($"         {TestArg,-26} Prueba: envía a SecurOS CREATE/UPDATE/DELETE_OBJECT con parámetros ingresados por consola.");
             Console.WriteLine($"         {"(sin argumentos)",-26} Monitoreo: sincroniza estados y comandos entre el panel y SecurOS.");
         }
 
@@ -75,6 +82,9 @@ namespace INTG_FIRE_PANEL_AVENAR
 
             if (Array.Exists(args, a => a == CreateSecurOsObjectsArg))
                 return AppMode.CreateSecurOsObjects;
+
+            if (Array.Exists(args, a => a == TestArg))
+                return AppMode.Test;
 
             return AppMode.Monitor;
         }
@@ -685,6 +695,12 @@ namespace INTG_FIRE_PANEL_AVENAR
 
         private static string ResolveOpcModelDir()         => ResolveConfigSubDir(OpcModelDirName);
         private static string ResolveIntegrationFilesDir() => ResolveConfigSubDir(IntegrationFilesDirName);
+
+        private static string ResolveIntegrationJsonPath()
+        {
+            var prefixClean = (ConfigurationManager.AppSettings["ddi_prefix"] ?? "").TrimEnd('_').ToLower();
+            return Path.Combine(ResolveIntegrationFilesDir(), $"{prefixClean}.integration.json");
+        }
 
         private static void FlushConsoleInputBuffer()
         {

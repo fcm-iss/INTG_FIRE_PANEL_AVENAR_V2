@@ -364,26 +364,48 @@ namespace INTG_FIRE_PANEL_AVENAR
         private void CreatePanelObjects(List<SecurOsObjectDefinition> definitions, string integrationParentId)
         {
             foreach (var spec in definitions.FindAll(s => s.IsPanel))
-                SendCreateObject(spec.ObjType, spec.ObjId, spec.Name, integrationParentId);
+                CreateObject(spec.ObjType, spec.ObjId, spec.Name, integrationParentId);
         }
 
         private void CreateItemObjects(List<SecurOsObjectDefinition> definitions)
         {
             foreach (var spec in definitions.FindAll(s => !s.IsPanel))
-                SendCreateObject(spec.ObjType, spec.ObjId, spec.Name, spec.ParentId);
+                CreateObject(spec.ObjType, spec.ObjId, spec.Name, spec.ParentId);
         }
 
-        private void SendCreateObject(string objType, string objId, string name, string parentId)
+        #endregion
+
+        #region Comandos CORE sobre objetos
+
+        // Id de cabecera de los comandos CORE ("CORE|<id>|ACCION|..."). Configurable para probar "1" frente a vacío.
+        public string CoreTargetId { get; set; } = "1";
+
+        public void CreateObject(string objType, string objId, string name, string parentId)
+            => SendCoreObjectCommand("CREATE_OBJECT", objType, objId,
+                                     $"objtype<{objType}>,objid<{objId}>,name<{name}>,parent_id<{parentId}>");
+
+        // name y parent_id son opcionales: solo se envían los que traen valor.
+        public void UpdateObject(string objType, string objId, string name, string parentId)
+            => SendCoreObjectCommand("UPDATE_OBJECT", objType, objId,
+                                     $"objtype<{objType}>,objid<{objId}>" + OptionalParam("name", name) + OptionalParam("parent_id", parentId));
+
+        public void DeleteObject(string objType, string objId)
+            => SendCoreObjectCommand("DELETE_OBJECT", objType, objId, $"objtype<{objType}>,objid<{objId}>");
+
+        private static string OptionalParam(string key, string value)
+            => string.IsNullOrEmpty(value) ? "" : $",{key}<{value}>";
+
+        private void SendCoreObjectCommand(string action, string objType, string objId, string parameters)
         {
             if (!_Securos.IsConnected())
             {
-                Console.WriteLine("[SecurOS]\tSin conexión — CREATE_OBJECT descartado.");
+                Console.WriteLine($"[SecurOS]\tSin conexión — {action} descartado.");
                 return;
             }
 
-            var msg = $"CORE|1|CREATE_OBJECT|objtype<{objType}>,objid<{objId}>,name<{name}>,parent_id<{parentId}>";
+            var msg = $"CORE|{CoreTargetId}|{action}|{parameters}";
             var returnCode = IidkSendMsg(_idUinP, msg);
-            Console.WriteLine($"[SecurOS]\tCREATE_OBJECT -> {objType} id={objId} rc={returnCode}");
+            Console.WriteLine($"[SecurOS]\t{action} -> {objType} id={objId} rc={returnCode}  ({msg})");
         }
 
         #endregion
