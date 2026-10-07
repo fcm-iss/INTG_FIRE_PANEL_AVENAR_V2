@@ -126,7 +126,7 @@ La aplicación tiene dos modos de ejecución seleccionables por argumento de lí
 
 <blockquote>
 
-#### Modo integración `--integration`
+#### Modo configuración inicial `--initial-setup`
 
 > **Cuándo ejecutar este modo:**
 > Solo en dos situaciones: la **primera puesta en marcha** del puesto, o cuando se realice una **actualización en la configuración del panel** (se agregaron o eliminaron zonas, grupos u otros objetos). En operación normal diaria este modo **no se vuelve a ejecutar**.
@@ -142,13 +142,15 @@ Este modo conecta al servidor OPC, descubre todos los objetos que el panel tiene
 ```powershell
 # PowerShell como Administrador
 cd INTG_FIRE_PANEL_AVENAR\bin\Release
-.\INTG_FIRE_PANEL_AVENAR.exe --integration
+.\INTG_FIRE_PANEL_AVENAR.exe --initial-setup
 ```
+
+> `--integration` sigue aceptándose como alias obsoleto: muestra un aviso y ejecuta este mismo modo.
 
 **Diagrama de flujo:**
 
 ```
- INTG_FIRE_PANEL_AVENAR.exe --integration
+ INTG_FIRE_PANEL_AVENAR.exe --initial-setup
               │
               ▼
  ┌────────────────────────────────────────┐
@@ -206,7 +208,7 @@ cd INTG_FIRE_PANEL_AVENAR\bin\Release
 #### Modo monitor _(por defecto)_
 
 > **Cuándo ejecutar este modo:**
-> Es el **modo de operación normal**. Se usa una vez que el modo `--integration` ya fue ejecutado y SecurOS tiene todos los objetos del panel creados en el punto de integración (UnIP). En este estado la aplicación conecta directamente y mantiene la integración activa en tiempo real.
+> Es el **modo de operación normal**. Se usa una vez que el modo `--initial-setup` ya fue ejecutado y SecurOS tiene todos los objetos del panel creados en el punto de integración (UnIP). En este estado la aplicación conecta directamente y mantiene la integración activa en tiempo real.
 
 ```cmd
 INTG_FIRE_PANEL_AVENAR.exe
@@ -216,7 +218,7 @@ INTG_FIRE_PANEL_AVENAR.exe
 
 ```
 1. Lee OPCTree.json desde Config\tree\
-        → Extrae la URL del servidor OPC guardada en --integration
+        → Extrae la URL del servidor OPC guardada en --initial-setup
         → Conecta directamente al servidor sin descubrimiento
 2. [APP] Verifica que el servicio SecurOS esté activo
    [APP] ¿Desea iniciar el monitoreo? → s/n
@@ -225,7 +227,7 @@ INTG_FIRE_PANEL_AVENAR.exe
         → Integración activa — presionar cualquier tecla para detener
 ```
 
-> Si `OPCTree.json` no existe o no contiene la URL del servidor, la aplicación muestra el error en rojo, lo registra en `error.log` y espera una tecla antes de cerrar. En ese caso ejecutar primero con `--integration`.
+> Si `OPCTree.json` no existe o no contiene la URL del servidor, la aplicación muestra el error en rojo, lo registra en `error.log` y espera una tecla antes de cerrar. En ese caso ejecutar primero con `--initial-setup`.
 
 </blockquote>
 
@@ -235,7 +237,7 @@ INTG_FIRE_PANEL_AVENAR.exe
  ¿Es la primera vez que se pone en marcha este puesto?
  ¿O se modificó la configuración del panel (zonas, grupos, etc.)?
               │
-              ├─ SÍ ──► Ejecutar --integration
+              ├─ SÍ ──► Ejecutar --initial-setup
               │              │
               │         SecurOS importa objetos (~1–2 min)
               │              │
@@ -306,7 +308,7 @@ No es necesario recompilar para cada puesto. El `.exe` es el mismo; solo cambia 
 <add key="securos_integration_dir"  value="C:\Program Files (x86)\ISS\SecurOS\integrations" />
 ```
 
-3. Ejecutar `--integration` en ese PC para que descubra el servidor OPC local y genere su propio `OPCTree.json`.
+3. Ejecutar `--initial-setup` en ese PC para que descubra el servidor OPC local y genere su propio `OPCTree.json`.
 
 > **Importante:** cada puesto tiene su propio `OPCTree.json` con la URL del servidor OPC local. Este archivo nunca se comparte entre máquinas.
 
@@ -568,5 +570,5 @@ Cuando ocurre un error crítico (archivo no encontrado, campo faltante, fallo de
 Ejemplo de entrada en `error.log`:
 
 ```
-[2026-06-02 14:35:10] [ERROR] Campo 'server' no encontrado en OPCTree.json — el archivo fue generado con una versión anterior. Ejecute primero con --integration para regenerarlo.
+[2026-06-02 14:35:10] [ERROR] Campo 'server' no encontrado en OPCTree.json — el archivo fue generado con una versión anterior. Ejecute primero con --initial-setup para regenerarlo.
 ```

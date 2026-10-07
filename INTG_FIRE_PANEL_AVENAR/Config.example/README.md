@@ -1,6 +1,6 @@
 # Config.example
 
-Ejemplos de los archivos que la aplicación genera en `Config/` al ejecutarse con `--integration`.
+Ejemplos de los archivos que la aplicación genera en `Config/` al ejecutarse con `--initial-setup`.
 Son de referencia: la app **no** los lee. Los archivos reales de `Config/tree/` y `Config/integration/`
 están en `.gitignore` porque dependen de cada panel/instalación.
 

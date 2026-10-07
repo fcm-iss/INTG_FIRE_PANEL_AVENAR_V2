@@ -363,7 +363,7 @@ MigrationBackup/
 FodyWeavers.xsd
 
 # Integration generated files
-# (se generan al correr --integration; hay ejemplos versionados en Config.example/)
+# (se generan al correr --initial-setup; hay ejemplos versionados en Config.example/)
 INTG_FIRE_PANEL_AVENAR/Config/integration/
 INTG_FIRE_PANEL_AVENAR/Config/tree/
 

@@ -17,22 +17,24 @@ namespace INTG_FIRE_PANEL_AVENAR
 {
     internal class App
     {
-        private enum AppMode { Integration, Monitor, CreateSecurOsObjects }
+        private enum AppMode { InitialSetup, Monitor, CreateSecurOsObjects }
+
+        private const string InitialSetupArg         = "--initial-setup";
+        private const string LegacyInitialSetupArg   = "--integration";
+        private const string CreateSecurOsObjectsArg = "--create-securos-objects";
 
         public void Run(string[] args)
         {
-            var mode = Array.Exists(args, a => a == "--integration") ? AppMode.Integration
-                     : Array.Exists(args, a => a == "--create-securos-objects") ? AppMode.CreateSecurOsObjects
-                     : AppMode.Monitor;
+            var mode = ResolveMode(args);
             //debug
             //habilita una de los modos para pruebas sin argumentos
-            //mode = AppMode.Integration;
+            //mode = AppMode.InitialSetup;
             // mode = AppMode.CreateSecurOsObjects;
 
             using (var opcManager = new OpcAdapter())
             {
-                if (mode == AppMode.Integration)
-                    RunIntegrationFlow(opcManager);
+                if (mode == AppMode.InitialSetup)
+                    RunInitialSetupFlow(opcManager);
                 else if (mode == AppMode.CreateSecurOsObjects)
                     RunCreateSecurOsObjectsFlow();
                 else
@@ -40,8 +42,25 @@ namespace INTG_FIRE_PANEL_AVENAR
             }
         }
 
-        #region Integration Flow
-        private static void RunIntegrationFlow(OpcAdapter opc)
+        private static AppMode ResolveMode(string[] args)
+        {
+            if (Array.Exists(args, a => a == InitialSetupArg))
+                return AppMode.InitialSetup;
+
+            if (Array.Exists(args, a => a == LegacyInitialSetupArg))
+            {
+                Console.WriteLine($"[APP]\t\t{LegacyInitialSetupArg} está obsoleto, use {InitialSetupArg}.");
+                return AppMode.InitialSetup;
+            }
+
+            if (Array.Exists(args, a => a == CreateSecurOsObjectsArg))
+                return AppMode.CreateSecurOsObjects;
+
+            return AppMode.Monitor;
+        }
+
+        #region Initial Setup Flow
+        private static void RunInitialSetupFlow(OpcAdapter opc)
         {
             var connectedUrl = DiscoverAndConnect(opc);
             if (connectedUrl == null) return;
@@ -145,7 +164,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             var serverUrl = OpcTreeReader.ReadServerUrlFromTreeJson(exporterPath);
             if (string.IsNullOrEmpty(serverUrl))
             {
-                LogError("Campo 'server' no encontrado en OPCTree.json — el archivo fue generado con una versión anterior. Ejecute primero con --integration para regenerarlo.");
+                LogError($"Campo 'server' no encontrado en OPCTree.json — el archivo fue generado con una versión anterior. Ejecute primero con {InitialSetupArg} para regenerarlo.");
                 return false;
             }
             if (!opc.Connect(serverUrl))
@@ -635,7 +654,7 @@ namespace INTG_FIRE_PANEL_AVENAR
 
             if (!File.Exists(path))
             {
-                LogError("OPCTree.json no encontrado en Config\\tree\\. Ejecute primero con --integration para generarlo.");
+                LogError($"OPCTree.json no encontrado en Config\\tree\\. Ejecute primero con {InitialSetupArg} para generarlo.");
                 return null;
             }
 
