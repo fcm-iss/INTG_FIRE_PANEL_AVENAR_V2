@@ -24,6 +24,7 @@ namespace INTG_OPC
         private Subscription _subscription;
         private string _serverUrl;
         private bool _disposed;
+        private OpcGroupIdTable _groupIds;
 
         private static readonly BrowseFilters FilterAll    = new BrowseFilters { BrowseFilter = browseFilter.all };
         private static readonly BrowseFilters FilterBranch = new BrowseFilters { BrowseFilter = browseFilter.branch };
@@ -534,7 +535,8 @@ namespace INTG_OPC
         /// </summary>
         public Dictionary<string, object> BuildTree(string prefix, string serverUrl, string idUinP)
         {
-            return new Dictionary<string, object>
+            _groupIds = OpcGroupIdTable.Load();
+            var tree  = new Dictionary<string, object>
             {
                 { "name",        "root" },
                 { "elementType", "branch" },
@@ -545,6 +547,8 @@ namespace INTG_OPC
                 { "idUinP",      idUinP },
                 { "children",    BuildChildNodes(null, prefix) }
             };
+            _groupIds.SaveIfChanged();
+            return tree;
         }
 
         private List<object> BuildChildNodes(ItemIdentifier parentId, string prefix, int depth = 0,
@@ -562,11 +566,10 @@ namespace INTG_OPC
             var treeOrdered = OrderElementsForTraversal(merged);
 
             var treeNodesAtCurrentLevel = new List<object>();
-            int childCounter = 1;
 
             foreach (var element in treeOrdered)
             {
-                string nodeId = ComputeNodeId(element.Name, depth, parentIdStr, ref childCounter);
+                string nodeId = ComputeNodeId(element.Name, depth, parentIdStr);
                 var    node   = BuildNodeEntry(element, nodeId, depth, parentIdStr, prefix, inheritedFields);
                 treeNodesAtCurrentLevel.Add(node);
             }
@@ -753,11 +756,10 @@ namespace INTG_OPC
             merged.Where(e => e.IsItem && !e.HasChildren)
                   .Concat(merged.Where(e => e.HasChildren));
 
-        private static string ComputeNodeId(string name, int depth, string parentIdStr,
-                                            ref int childCounter)
+        private string ComputeNodeId(string name, int depth, string parentIdStr)
         {
             if (depth == 0) return ComputePanelNodeId(name);
-            if (depth == 1) return ComputeTypeNodeId(parentIdStr, ref childCounter);
+            if (depth == 1) return ComputeTypeNodeId(name, parentIdStr);
             if (depth <= 3) return ComputeInstanceNodeId(name, parentIdStr);
             return "";
         }
@@ -774,12 +776,10 @@ namespace INTG_OPC
             return matches[matches.Count - 2].Value + "-" + matches[matches.Count - 1].Value;
         }
 
-        private static string ComputeTypeNodeId(string parentIdStr, ref int childCounter)
-        {
-            var id = string.IsNullOrEmpty(parentIdStr) ? "" : parentIdStr + "." + childCounter;
-            childCounter++;
-            return id;
-        }
+        // El número del grupo sale de opc_group_ids.json, no de su posición en el browse:
+        // así un grupo nuevo o eliminado no corre los ids de los demás.
+        private string ComputeTypeNodeId(string name, string parentIdStr) =>
+            string.IsNullOrEmpty(parentIdStr) ? "" : parentIdStr + "." + _groupIds.GetOrAssign(name);
 
         private static string ComputeInstanceNodeId(string name, string parentIdStr) =>
             IsNumeric(name) && !string.IsNullOrEmpty(parentIdStr)

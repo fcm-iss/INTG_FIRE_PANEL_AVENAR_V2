@@ -380,32 +380,45 @@ namespace INTG_FIRE_PANEL_AVENAR
         // Id de cabecera de los comandos CORE ("CORE|<id>|ACCION|..."). Configurable para probar "1" frente a vacío.
         public string CoreTargetId { get; set; } = "1";
 
-        public void CreateObject(string objType, string objId, string name, string parentId)
+        // Simulación: los comandos CORE se muestran en consola pero no se envían a SecurOS.
+        public bool DryRun { get; set; }
+
+        public int CreateObject(string objType, string objId, string name, string parentId)
             => SendCoreObjectCommand("CREATE_OBJECT", objType, objId,
                                      $"objtype<{objType}>,objid<{objId}>,name<{name}>,parent_id<{parentId}>");
 
         // name y parent_id son opcionales: solo se envían los que traen valor.
-        public void UpdateObject(string objType, string objId, string name, string parentId)
+        public int UpdateObject(string objType, string objId, string name, string parentId)
             => SendCoreObjectCommand("UPDATE_OBJECT", objType, objId,
                                      $"objtype<{objType}>,objid<{objId}>" + OptionalParam("name", name) + OptionalParam("parent_id", parentId));
 
-        public void DeleteObject(string objType, string objId)
+        public int DeleteObject(string objType, string objId)
             => SendCoreObjectCommand("DELETE_OBJECT", objType, objId, $"objtype<{objType}>,objid<{objId}>");
 
         private static string OptionalParam(string key, string value)
             => string.IsNullOrEmpty(value) ? "" : $",{key}<{value}>";
 
-        private void SendCoreObjectCommand(string action, string objType, string objId, string parameters)
+        // rc que devuelven los comandos cuando no se envían por falta de conexión.
+        public const int NotSentReturnCode = -1;
+
+        private int SendCoreObjectCommand(string action, string objType, string objId, string parameters)
         {
+            if (DryRun)
+            {
+                Console.WriteLine($"[SecurOS]\t(simulado) CORE|{CoreTargetId}|{action}|{parameters}");
+                return NotSentReturnCode;
+            }
+
             if (!_Securos.IsConnected())
             {
                 Console.WriteLine($"[SecurOS]\tSin conexión — {action} descartado.");
-                return;
+                return NotSentReturnCode;
             }
 
             var msg = $"CORE|{CoreTargetId}|{action}|{parameters}";
             var returnCode = IidkSendMsg(_idUinP, msg);
             Console.WriteLine($"[SecurOS]\t{action} -> {objType} id={objId} rc={returnCode}  ({msg})");
+            return returnCode;
         }
 
         #endregion

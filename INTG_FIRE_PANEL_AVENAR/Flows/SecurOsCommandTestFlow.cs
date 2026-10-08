@@ -19,10 +19,12 @@ namespace INTG_FIRE_PANEL_AVENAR.Flows
 
         private readonly string                  _integrationParentId = ConfigurationManager.AppSettings["idUinP"] ?? "1";
         private readonly List<SecurOsObjectType> _types;
+        private readonly ApplyOpcTreeChangesFlow _applyChangesFlow;
 
-        public SecurOsCommandTestFlow(string integrationJsonPath)
+        public SecurOsCommandTestFlow(string integrationJsonPath, string changesJsonPath)
         {
-            _types = LoadTypes(integrationJsonPath);
+            _types            = LoadTypes(integrationJsonPath);
+            _applyChangesFlow = new ApplyOpcTreeChangesFlow(changesJsonPath, _integrationParentId);
         }
 
         public void Run()
@@ -56,6 +58,7 @@ namespace INTG_FIRE_PANEL_AVENAR.Flows
             Console.WriteLine("         2- UPDATE_OBJECT  (actualizar objeto)");
             Console.WriteLine("         3- DELETE_OBJECT  (eliminar objeto)");
             Console.WriteLine($"         4- Cambiar cabecera CORE (actual: {FormatCoreHeader(securos.CoreTargetId)})");
+            Console.WriteLine("         5- Aplicar OPCTree.changes.json (DELETE/CREATE/UPDATE según el último RESET)");
             Console.WriteLine("         0- Salir");
             Console.Write("Seleccione una opción: ");
             return Console.ReadLine()?.Trim() ?? ExitOption;
@@ -69,6 +72,7 @@ namespace INTG_FIRE_PANEL_AVENAR.Flows
                 case "2": SendUpdate(securos); break;
                 case "3": SendDelete(securos); break;
                 case "4": ToggleCoreHeader(securos); break;
+                case "5": _applyChangesFlow.Run(securos); break;
                 default:  Console.WriteLine("[TEST]\t\tOpción no válida."); break;
             }
         }

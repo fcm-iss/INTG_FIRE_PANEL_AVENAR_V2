@@ -100,10 +100,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App.cs" />
+    <Compile Include="Flows\ApplyOpcTreeChangesFlow.cs" />
     <Compile Include="Flows\SecurOsCommandTestFlow.cs" />
     <Compile Include="L2_Application\DetectOpcTreeChangesUseCase.cs" />
     <Compile Include="L2_Application\IntegrationStructureReader.cs" />
     <Compile Include="L2_Application\ExecuteSecurOsCommandUseCase.cs" />
+    <Compile Include="L2_Application\OpcTreeChangesReader.cs" />
     <Compile Include="L2_Application\OpcTreeReader.cs" />
     <Compile Include="L2_Application\SecurOsFileExporter.cs" />
     <Compile Include="L2_Application\SyncItemStateUseCase.cs" />
@@ -117,6 +119,7 @@
     <Compile Include="L1_Domain\ValueObjects\SecurOsCommand.cs" />
     <Compile Include="L3_Infrastructure\OpcAdapter.cs" />
     <Compile Include="L3_Infrastructure\OpcDaClient.cs" />
+    <Compile Include="L3_Infrastructure\OpcGroupIdTable.cs" />
     <Compile Include="L3_Infrastructure\SecurOsAdapter.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -129,6 +132,10 @@
     </Content>
     <Content Include="Config\dbi_fields.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <!-- PreserveNewest: la app agrega a este archivo los grupos nuevos; Always los pisaría en cada build. -->
+    <Content Include="Config\opc_group_ids.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="log4cxx.properties">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

@@ -49,7 +49,7 @@ namespace INTG_FIRE_PANEL_AVENAR
                 else if (mode == AppMode.CreateSecurOsObjects)
                     RunCreateSecurOsObjectsFlow();
                 else if (mode == AppMode.Test)
-                    new SecurOsCommandTestFlow(ResolveIntegrationJsonPath()).Run();
+                    new SecurOsCommandTestFlow(ResolveIntegrationJsonPath(), ResolveChangesJsonPath()).Run();
                 else
                     RunMonitorFlow(opcManager);
             }
@@ -71,7 +71,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             Console.WriteLine("[APP]\t\tModos disponibles:");
             Console.WriteLine($"         {InitialSetupArg,-26} Configuración inicial: descubre el OPC, genera y despliega los archivos de integración.");
             Console.WriteLine($"         {CreateSecurOsObjectsArg,-26} Crea en SecurOS los objetos definidos en Config\\{OpcModelDirName}\\OPCTree.json.");
-            Console.WriteLine($"         {TestArg,-26} Prueba: envía a SecurOS CREATE/UPDATE/DELETE_OBJECT con parámetros ingresados por consola.");
+            Console.WriteLine($"         {TestArg,-26} Prueba: envía a SecurOS CREATE/UPDATE/DELETE_OBJECT con parámetros ingresados por consola, o aplica OPCTree.changes.json.");
             Console.WriteLine($"         {"(sin argumentos)",-26} Monitoreo: sincroniza estados y comandos entre el panel y SecurOS.");
         }
 
@@ -701,6 +701,9 @@ namespace INTG_FIRE_PANEL_AVENAR
             var prefixClean = (ConfigurationManager.AppSettings["ddi_prefix"] ?? "").TrimEnd('_').ToLower();
             return Path.Combine(ResolveIntegrationFilesDir(), $"{prefixClean}.integration.json");
         }
+
+        // Mismo archivo que escribe RefreshTreeAndReportChanges junto a OPCTree.json.
+        private static string ResolveChangesJsonPath() => Path.Combine(ResolveOpcModelDir(), "OPCTree.changes.json");
 
         private static void FlushConsoleInputBuffer()
         {
