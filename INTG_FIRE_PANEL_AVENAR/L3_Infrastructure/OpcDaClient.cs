@@ -208,6 +208,16 @@ namespace INTG_OPC
             }
         }
 
+        /// <summary>
+        /// Libera el grupo de suscripción actual y crea uno nuevo con el mapa indicado
+        /// (tras un RESET, para monitorear los ítems nuevos y dejar de monitorear los eliminados).
+        /// </summary>
+        public bool RestartIntegrationMonitoring(Dictionary<string, string> nodeIdMapByItemName, int updateRateMs)
+        {
+            ReleaseGroup();
+            return StartIntegrationMonitoring(nodeIdMapByItemName, updateRateMs);
+        }
+
         private void CreateSubscriptionGroup(string groupName, int updateRateMs)
         {
             var groupState = BuildGroupState(groupName, updateRateMs);

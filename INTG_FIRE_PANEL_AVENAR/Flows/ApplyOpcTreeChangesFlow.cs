@@ -8,16 +8,12 @@ using System.Linq;
 namespace INTG_FIRE_PANEL_AVENAR.Flows
 {
     /// <summary>
-    /// Aplica en SecurOS el reporte OPCTree.changes.json: DELETE de "removed", CREATE de "added"
-    /// y UPDATE (nombre) de "renamed". El orden respeta la jerarquía panel → ítem:
-    /// primero se elimina (ítems antes que paneles, y antes de crear porque un objid puede volver con otro tipo),
-    /// luego se crea (paneles antes que ítems, porque el ítem necesita su padre) y al final se renombra.
+    /// Modo test: aplica en SecurOS el reporte OPCTree.changes.json con resumen previo, elección de alcance,
+    /// simulación y confirmación. El envío y su orden los resuelve ApplyOpcTreeChangesUseCase.
     /// </summary>
     internal class ApplyOpcTreeChangesFlow
     {
         private enum Scope { All, DeleteOnly, CreateOnly, UpdateOnly }
-
-        private static readonly char[] IidkDelimiters = { '<', '>', ',' };
 
         private readonly string _changesJsonPath;
         private readonly string _integrationParentId;
@@ -51,9 +47,10 @@ namespace INTG_FIRE_PANEL_AVENAR.Flows
 
         private void ApplyChanges(SecurOsAdapter securos, OpcTreeChanges changes, Scope scope)
         {
-            if (scope == Scope.All || scope == Scope.DeleteOnly) DeleteRemoved(securos, changes.Removed);
-            if (scope == Scope.All || scope == Scope.CreateOnly) CreateAdded(securos, changes.Added);
-            if (scope == Scope.All || scope == Scope.UpdateOnly) UpdateRenamed(securos, changes.Renamed);
+            var useCase = new ApplyOpcTreeChangesUseCase(securos, _integrationParentId);
+            if (scope == Scope.All || scope == Scope.DeleteOnly) useCase.DeleteRemoved(changes.Removed).Print(securos.DryRun);
+            if (scope == Scope.All || scope == Scope.CreateOnly) useCase.CreateAdded(changes.Added).Print(securos.DryRun);
+            if (scope == Scope.All || scope == Scope.UpdateOnly) useCase.UpdateRenamed(changes.Renamed).Print(securos.DryRun);
         }
 
         #region Carga y resumen
@@ -148,84 +145,5 @@ namespace INTG_FIRE_PANEL_AVENAR.Flows
         }
 
         #endregion
-
-        #region Envío
-
-        private static void DeleteRemoved(SecurOsAdapter securos, List<SecurOsObjectDefinition> removed)
-        {
-            var results = new ReturnCodeTally("DELETE_OBJECT");
-            foreach (var def in ItemsFirst(removed))
-                results.Record(securos.DeleteObject(def.ObjType, def.ObjId));
-            results.Print(securos.DryRun);
-        }
-
-        private void CreateAdded(SecurOsAdapter securos, List<SecurOsObjectDefinition> added)
-        {
-            var results = new ReturnCodeTally("CREATE_OBJECT");
-            foreach (var def in PanelsFirst(added))
-                results.Record(securos.CreateObject(def.ObjType, def.ObjId, SanitizeName(def.Name), ResolveParentId(def)));
-            results.Print(securos.DryRun);
-        }
-
-        private static void UpdateRenamed(SecurOsAdapter securos, List<RenamedObject> renamed)
-        {
-            var results = new ReturnCodeTally("UPDATE_OBJECT");
-            foreach (var obj in renamed)
-                results.Record(securos.UpdateObject(obj.ObjType, obj.ObjId, SanitizeName(obj.NewName), parentId: null));
-            results.Print(securos.DryRun);
-        }
-
-        private static IEnumerable<SecurOsObjectDefinition> ItemsFirst(List<SecurOsObjectDefinition> definitions)
-            => definitions.Where(d => !d.IsPanel).Concat(definitions.Where(d => d.IsPanel));
-
-        private static IEnumerable<SecurOsObjectDefinition> PanelsFirst(List<SecurOsObjectDefinition> definitions)
-            => definitions.Where(d => d.IsPanel).Concat(definitions.Where(d => !d.IsPanel));
-
-        // Un panel cuelga del punto de integración (idUinP); un ítem, del objid de su panel.
-        private string ResolveParentId(SecurOsObjectDefinition def)
-            => def.IsPanel ? _integrationParentId : def.ParentId;
-
-        // '<', '>' y ',' delimitan los parámetros del mensaje IIDK: se reemplazan por espacio.
-        private static string SanitizeName(string name)
-        {
-            if (string.IsNullOrEmpty(name)) return "";
-            var parts = name.Split(IidkDelimiters);
-            return string.Join(" ", parts.Select(p => p.Trim()).Where(p => p.Length > 0));
-        }
-
-        #endregion
-
-        /// <summary>Cuenta cuántos comandos devolvieron cada rc de IidkSendMsg.</summary>
-        private class ReturnCodeTally
-        {
-            private readonly string                     _action;
-            private readonly SortedDictionary<int, int> _countByCode = new SortedDictionary<int, int>();
-            private int                                 _total;
-
-            public ReturnCodeTally(string action)
-            {
-                _action = action;
-            }
-
-            public void Record(int returnCode)
-            {
-                int count;
-                _countByCode.TryGetValue(returnCode, out count);
-                _countByCode[returnCode] = count + 1;
-                _total++;
-            }
-
-            public void Print(bool simulated)
-            {
-                if (simulated)
-                {
-                    Console.WriteLine($"[TEST]\t\t{_action}: {_total} mensajes simulados.");
-                    return;
-                }
-
-                var detail = string.Join(", ", _countByCode.Select(kv => $"rc={kv.Key}: {kv.Value}"));
-                Console.WriteLine($"[TEST]\t\t{_action}: {_total} enviados ({(_total == 0 ? "ninguno" : detail)}).");
-            }
-        }
     }
 }

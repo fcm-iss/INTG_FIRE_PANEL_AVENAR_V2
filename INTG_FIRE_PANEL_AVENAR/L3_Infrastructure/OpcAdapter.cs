@@ -48,7 +48,8 @@ namespace INTG_FIRE_PANEL_AVENAR.Infrastructure
 
         private static string ResolveOpcHost() => ConfigurationManager.AppSettings["opc_host"] ?? "localhost";
         public bool StartMonitoring(Dictionary<string, string> nodeIdMap, int updateRateMs) => _opcDaClient.StartIntegrationMonitoring(nodeIdMap, updateRateMs);
-        public bool WriteCommand(string commandXml)                                      => _opcDaClient.WriteCommand(commandXml);
+        public bool RestartMonitoring(Dictionary<string, string> nodeIdMap, int updateRateMs) => _opcDaClient.RestartIntegrationMonitoring(nodeIdMap, updateRateMs);
+        public bool WriteCommand(string commandXml)                                      =>_opcDaClient.WriteCommand(commandXml);
         public void Dispose()                                                            => _opcDaClient.Dispose();
     }
 }

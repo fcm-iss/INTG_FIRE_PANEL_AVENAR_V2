@@ -8,13 +8,19 @@ namespace INTG_FIRE_PANEL_AVENAR.Application
     public class ExecuteSecurOsCommandUseCase
     {
         private readonly Action<string> _enqueueWrite;
-        private readonly Dictionary<string, (string itemName, Dictionary<string, string> commands)> _commandNodeMap;
+        // volatile: se reemplaza desde el hilo OPC tras un RESET y se lee desde el hilo de eventos de SecurOS.
+        private volatile Dictionary<string, (string itemName, Dictionary<string, string> commands)> _commandNodeMap;
 
         public ExecuteSecurOsCommandUseCase(
             Action<string> enqueueWrite,
             Dictionary<string, (string itemName, Dictionary<string, string> commands)> commandNodeMap)
         {
             _enqueueWrite   = enqueueWrite;
+            _commandNodeMap = commandNodeMap;
+        }
+
+        public void ReplaceCommandNodeMap(Dictionary<string, (string itemName, Dictionary<string, string> commands)> commandNodeMap)
+        {
             _commandNodeMap = commandNodeMap;
         }
 

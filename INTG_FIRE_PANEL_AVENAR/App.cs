@@ -496,10 +496,11 @@ namespace INTG_FIRE_PANEL_AVENAR
             var opcQueue = new BlockingCollection<Action>();
             var syncState = new SyncItemStateUseCase(securOs);
             var execCommand = new ExecuteSecurOsCommandUseCase(xml => opcQueue.TryAdd(() => opc.WriteCommand(xml)), commandNodeMap);
+            var treeReset = new OpcTreeResetFlow(opc, securOs, execCommand, exporterPath, ResolveUpdateRateMs());
 
             opc.StateChanged += changes => syncState.Execute(changes);
             securOs.CommandReceived += cmd => execCommand.Execute(cmd);
-            securOs.ResetRequested += () => EnqueueTreeRefresh(opcQueue, opc, exporterPath);
+            securOs.ResetRequested += () => treeReset.Enqueue(opcQueue);
 
             RegisterShutdownHandlers(opcQueue);
 
@@ -533,74 +534,6 @@ namespace INTG_FIRE_PANEL_AVENAR
                 Console.WriteLine("[APP]\t\tCierre detectado — desconectando OPC y SecurOS...");
                 SignalShutdown();
             };
-        }
-        #endregion
-
-        // ══════════════════════════════════════════════════════════════════
-        // Relectura del árbol OPC (INTEGRATION RESET)
-        // ══════════════════════════════════════════════════════════════════
-        #region Relectura del árbol OPC
-        private static int _treeRefreshPending;
-
-        private static void EnqueueTreeRefresh(BlockingCollection<Action> opcQueue, OpcAdapter opc, string exporterPath)
-        {
-            // Varios RESET seguidos producen una sola relectura: el browse completo es costoso.
-            if (Interlocked.CompareExchange(ref _treeRefreshPending, 1, 0) != 0)
-            {
-                Console.WriteLine("[APP]\t\tRESET recibido — ya hay una relectura del árbol OPC pendiente.");
-                return;
-            }
-
-            try
-            {
-                opcQueue.Add(() => RefreshTreeAndReportChanges(opc, exporterPath));
-            }
-            catch (InvalidOperationException)
-            {
-                Interlocked.Exchange(ref _treeRefreshPending, 0);
-            }
-        }
-
-        private static void RefreshTreeAndReportChanges(OpcAdapter opc, string exporterPath)
-        {
-            try
-            {
-                Console.WriteLine("[APP]\t\tRESET recibido — releyendo árbol OPC...");
-                var ddiPrefix = ConfigurationManager.AppSettings["ddi_prefix"] ?? "";
-                var refreshedPath = ExportRefreshedTree(opc, exporterPath, ddiPrefix);
-                var changes = new DetectOpcTreeChangesUseCase(ddiPrefix).Execute(exporterPath, refreshedPath);
-                WriteChangesReport(changes, Path.Combine(Path.GetDirectoryName(exporterPath), "OPCTree.changes.json"));
-            }
-            catch (Exception ex)
-            {
-                LogError($"Error al releer el árbol OPC: {ex.Message}");
-            }
-            finally
-            {
-                Interlocked.Exchange(ref _treeRefreshPending, 0);
-            }
-        }
-
-        private static string ExportRefreshedTree(OpcAdapter opc, string exporterPath, string ddiPrefix)
-        {
-            var serverUrl = OpcTreeReader.ReadServerUrlFromTreeJson(exporterPath);
-            var refreshedPath = Path.Combine(Path.GetDirectoryName(exporterPath), "OPCTree.reset.json");
-            opc.BuildSecurOsFileExporter(ddiPrefix, serverUrl).ExportOpcTreeWithPropertiesToJson(refreshedPath);
-            return refreshedPath;
-        }
-
-        private static void WriteChangesReport(OpcTreeChanges changes, string reportPath)
-        {
-            var report = new Dictionary<string, object>
-            {
-                { "createdAt", DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss") },
-                { "added",     changes.Added },
-                { "removed",   changes.Removed },
-                { "renamed",   changes.Renamed }
-            };
-            var json = new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Serialize(report);
-            File.WriteAllText(reportPath, json, new UTF8Encoding(false));
-            Console.WriteLine($"[APP]\t\tReporte de cambios: {reportPath}");
         }
         #endregion
 

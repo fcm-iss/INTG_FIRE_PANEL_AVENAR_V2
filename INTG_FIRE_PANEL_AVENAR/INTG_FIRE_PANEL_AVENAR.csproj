@@ -101,7 +101,9 @@
   <ItemGroup>
     <Compile Include="App.cs" />
     <Compile Include="Flows\ApplyOpcTreeChangesFlow.cs" />
+    <Compile Include="Flows\OpcTreeResetFlow.cs" />
     <Compile Include="Flows\SecurOsCommandTestFlow.cs" />
+    <Compile Include="L2_Application\ApplyOpcTreeChangesUseCase.cs" />
     <Compile Include="L2_Application\DetectOpcTreeChangesUseCase.cs" />
     <Compile Include="L2_Application\IntegrationStructureReader.cs" />
     <Compile Include="L2_Application\ExecuteSecurOsCommandUseCase.cs" />
