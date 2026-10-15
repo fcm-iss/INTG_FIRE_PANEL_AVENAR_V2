@@ -1,9 +1,11 @@
 # Qué hace la integración al recibir `INTEGRATION RESET`
 
 En modo monitoreo, cuando SecurOS envía un `INTEGRATION RESET` cuyo `Id` es igual a `idUinP` (`App.config`),
-la aplicación vuelve a leer el árbol del servidor OPC y pone SecurOS y el monitoreo al día con lo que cambió.
+la aplicación hace tres cosas:
 
-> La respuesta del RESET a SecurOS (`<tipo raíz>|<Id>|RESET|<json>`) todavía no está implementada.
+1. Vuelve a leer el árbol del servidor OPC.
+2. Pone SecurOS y el monitoreo al día con lo que cambió.
+3. Cuando termina, **responde el RESET** a SecurOS.
 
 Un RESET de otro punto de integración (otro `Id`) se ignora.
 
@@ -14,11 +16,12 @@ INTEGRATION RESET (Id = idUinP)
   → SecurOsAdapter.ResetRequested → cola OPC → hilo principal (STA) → OpcTreeResetFlow
      1. Relectura del árbol OPC          → Config/opc-model/OPCTree.reset.json
      2. Comparación con OPCTree.json     → Config/opc-model/OPCTree.changes.json
-        ── sin paneles: lectura descartada ── sin cambios: fin ──
+        ── sin cambios: ir al paso 6 ──
      3. Cambios en SecurOS               DELETE_OBJECT → CREATE_OBJECT → UPDATE_OBJECT
      4. Promoción del árbol              OPCTree.json → OPCTree.previous.json
                                          OPCTree.reset.json → OPCTree.json
      5. Recarga del monitoreo            suscripción OPC + mapa de comandos
+     6. Respuesta del RESET a SecurOS    <tipo raíz>|<Id>|RESET|{"version":1,"objects":[...]}
 ```
 
 - Todo se ejecuta en el hilo principal: los objetos COM de OPC DA solo pueden usarse desde el hilo donde se
@@ -27,16 +30,12 @@ INTEGRATION RESET (Id = idUinP)
 - Si llegan varios RESET seguidos, se hace una sola relectura.
 
 Código: `Flows/OpcTreeResetFlow.cs`, `L2_Application/DetectOpcTreeChangesUseCase.cs`,
-y `L2_Application/ApplyOpcTreeChangesUseCase.cs`.
+`L2_Application/ApplyOpcTreeChangesUseCase.cs` y `L3_Infrastructure/SecurOsAdapter.cs` (`SendResetResponse`).
 
 ## 1. Relectura del árbol
 
 Se vuelve a ejecutar el mismo `BuildTree` de `--initial-setup`. El resultado se guarda en
 `OPCTree.reset.json`, con el mismo formato que `OPCTree.json`.
-
-Si la relectura no trae ningún panel (por ejemplo, porque el servidor OPC no respondió), se descarta: no se
-compara, no se borra nada en SecurOS y no se reemplaza `OPCTree.json`. Sin esta protección, un árbol vacío haría
-que todos los objetos aparecieran como eliminados y se borraran en SecurOS.
 
 ### Ids estables por grupo
 
@@ -113,6 +112,55 @@ El árbol releído pasa a ser el activo, así el siguiente RESET compara contra 
   empiezan a reportar estado y los eliminados dejan de monitorearse.
 - Se reemplaza el mapa de comandos, para que SecurOS pueda enviar comandos a los ítems nuevos.
 
+## 6. Respuesta del RESET a SecurOS
+
+Según el manual del IIDK, al recibir `Action:RESET` se responde con **un solo mensaje**:
+
+```
+<tipo raíz>|<Id del RESET>|RESET|<json>
+```
+
+| Parte | Valor |
+|---|---|
+| `<tipo raíz>` | Tipo de objeto raíz de la integración. Por defecto es `ddi_prefix` + `FIRE_PANEL` (por ejemplo `TESTUPDATEFIREPANEL_FIRE_PANEL`). Se puede cambiar con la clave `reset_response_type` de `App.config`. |
+| `<Id del RESET>` | El `Id` que llegó en el RESET. Como solo se atiende el RESET de este punto de integración, siempre es `idUinP`. |
+| `RESET` | La acción que se responde. |
+| `<json>` | El árbol de objetos serializado. |
+
+El JSON tiene `version` y la lista `objects`, y cada objeto lleva `type`, `id` y `name`:
+
+```json
+{
+  "version": 1,
+  "objects": [
+    { "type": "NOTIFICATION_OUTPUT", "id": "1", "name": "NAC Piso 1" },
+    { "type": "MONITOR_INPUT",       "id": "1", "name": "Entrada monitoreo 1" },
+    { "type": "MONITOR_INPUT",       "id": "2", "name": "Entrada monitoreo 2" }
+  ]
+}
+```
+
+Los objetos salen del árbol activo (`OPCTree.json`) en `RespondToReset` (`Flows/OpcTreeResetFlow.cs`), con
+`OpcTreeReader.ExtractObjectDefinitionsFromTree`: la misma lectura que usa la comparación del paso 2. Cuando se
+responde, ese archivo ya es el árbol promovido o, si no hubo cambios, equivale al releído. Se envían los paneles
+y sus ítems; `name` es el `itemName` de cada nodo.
+
+No se responde con mensajes `SETUP` ni `STATE`: la respuesta es únicamente el mensaje `RESET` con el JSON.
+
+### Cuándo se responde
+
+La respuesta es **el último paso** y se envía solo cuando toda la actualización terminó:
+
+| Resultado | ¿Se responde? |
+|---|---|
+| Relectura sin cambios | Sí |
+| Cambios aplicados, árbol promovido y suscripción OPC recargada | Sí |
+| Falla la relectura, la comparación, la escritura del reporte o la promoción | No |
+| No se pudo recargar la suscripción OPC | No |
+
+Si no se responde, la consola muestra:
+`[RESET] La actualización no terminó — no se responde el RESET a SecurOS.`
+
 ## Probar sin esperar un RESET
 
 En el modo `--test`, la opción **5 – Aplicar OPCTree.changes.json** envía los mismos DELETE/CREATE/UPDATE
@@ -122,7 +170,7 @@ solo CREATE o solo UPDATE), tiene un modo **Simular** que muestra los mensajes s
 ## Limitaciones conocidas
 
 1. **No se sabe qué `rc` significa éxito.** Los comandos rechazados por SecurOS se cuentan en el resumen, pero
-   no impiden promover el árbol. Un CREATE que falló no se reintenta en el siguiente RESET.
+   no impiden promover el árbol ni responder el RESET. Un CREATE que falló no se reintenta en el siguiente RESET.
 2. **Tipos nuevos que SecurOS no conoce.** Si aparece un grupo cuyo tipo no está en el `.integration.json` ni en
    el `.ddi` desplegados, SecurOS rechaza el CREATE de sus ítems. Hay que regenerar y desplegar los archivos de
    integración con `--initial-setup`, lo que implica reiniciar el servicio. El RESET no lo hace.
@@ -131,5 +179,5 @@ solo CREATE o solo UPDATE), tiene un modo **Simular** que muestra los mensajes s
    objetos renumerados se borrarían y se volverían a crear.
 4. **No se filtra por `allowed_types`.** La comparación lee el árbol completo, incluso tipos que no se
    despliegan en SecurOS (ver [allowed-types.md](allowed-types.md)).
-5. **Relecturas incompletas.** La protección solo cubre una relectura sin paneles. Si llega el panel pero faltan
-   grupos (servidor que responde a medias), los objetos de esos grupos se borrarían en SecurOS.
+5. **Tiempo de respuesta.** El `.integration.json` define `reset_timeout: 60`. La relectura completa y los
+   comandos de un panel grande pueden acercarse a ese límite antes de que se envíe la respuesta.

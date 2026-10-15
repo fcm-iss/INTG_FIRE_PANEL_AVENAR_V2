@@ -39,7 +39,7 @@ namespace INTG_FIRE_PANEL_AVENAR
             //habilita una de los modos para pruebas sin argumentos
             //mode = AppMode.InitialSetup;
             //mode = AppMode.CreateSecurOsObjects;
-            // mode = AppMode.Test;
+            //mode = AppMode.Test;
 
 
             using (var opcManager = new OpcAdapter())

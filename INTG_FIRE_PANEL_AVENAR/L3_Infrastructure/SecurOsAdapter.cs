@@ -1,6 +1,7 @@
 ﻿using INTG_FIRE_PANEL_AVENAR.Application;
 using INTG_FIRE_PANEL_AVENAR.Domain;
 using INTG_FIRE_PANEL_AVENAR.Domain.ValueObjects;
+using Newtonsoft.Json;
 using Opc.Da;
 using SecurosIIDK;
 using System;
@@ -29,7 +30,7 @@ namespace INTG_FIRE_PANEL_AVENAR
         private string _idUinP;
 
         public event Action<SecurOsCommand> CommandReceived;
-        public event Action                 ResetRequested;
+        public event Action ResetRequested;
 
         private SecurOsAdapter(IidkManager securosIidkManager, string host, string port, string idUinP)
         {
@@ -267,9 +268,9 @@ namespace INTG_FIRE_PANEL_AVENAR
             && string.Equals(message.Id, _idUinP, StringComparison.OrdinalIgnoreCase);
 
         private bool IsIntegrationReset(SecurosIIDK.Message message)
-            => string.Equals(message.Type,   "INTEGRATION", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(message.Action, "RESET",       StringComparison.OrdinalIgnoreCase)
-            && string.Equals(message.Id,      _idUinP,      StringComparison.OrdinalIgnoreCase);
+            => string.Equals(message.Type, "INTEGRATION", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(message.Action, "RESET", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(message.Id, _idUinP, StringComparison.OrdinalIgnoreCase);
 
         private static bool IsSystemMessage(SecurosIIDK.Message message)
             => string.Equals(message.Type, "INTEGRATION", StringComparison.OrdinalIgnoreCase)
@@ -291,6 +292,50 @@ namespace INTG_FIRE_PANEL_AVENAR
             }
             return sb.ToString();
         }
+
+        #endregion
+
+        #region Respuesta al RESET
+
+        private const int ResetTreeVersion = 1;
+
+        public void SendResetResponse(List<SecurOsObjectDefinition> objects)
+        {
+            if (!_Securos.IsConnected())
+            {
+                Console.WriteLine("[SecurOS]\tSin conexión — respuesta al RESET descartada.");
+                return;
+            }
+
+            // El Id es el del RESET recibido, que solo se atiende si coincide con idUinP.
+            var msg = $"{ResolveResetResponseType()}|{_idUinP}|RESET|{BuildResetTreeJson(objects)}";
+            var returnCode = IidkSendMsg(_idUinP, msg);
+            Console.WriteLine($"[SecurOS]\tRespuesta RESET -> rc={returnCode}  ({msg})");
+        }
+
+        // Tipo de objeto raíz de la integración; configurable en App.config con "reset_response_type".
+        private static string ResolveResetResponseType()
+        {
+            return (ConfigurationManager.AppSettings["ddi_prefix"] ?? "") + "FIRE_PANEL";
+        }
+
+        private static string BuildResetTreeJson(List<SecurOsObjectDefinition> objects)
+        {
+            var tree = new Dictionary<string, object>
+            {
+                { "version", ResetTreeVersion },
+                { "objects", objects.ConvertAll(BuildResetTreeObject) }
+            };
+            return new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Serialize(tree);
+        }
+
+        private static Dictionary<string, object> BuildResetTreeObject(SecurOsObjectDefinition def)
+            => new Dictionary<string, object>
+            {
+                { "type", def.ObjType },
+                { "id",   def.ObjId },
+                { "name", def.Name ?? "" }
+            };
 
         #endregion
 

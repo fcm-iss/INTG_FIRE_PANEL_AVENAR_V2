@@ -16,8 +16,9 @@ namespace INTG_FIRE_PANEL_AVENAR.Flows
 {
     /// <summary>
     /// INTEGRATION RESET durante el monitoreo: relee el árbol OPC, compara con el activo (OPCTree.json),
-    /// aplica las diferencias en SecurOS (DELETE / CREATE / UPDATE), promueve el árbol nuevo como activo
-    /// y recarga la suscripción OPC y el mapa de comandos. Debe ejecutarse en el hilo STA de la cola OPC.
+    /// aplica las diferencias en SecurOS (DELETE / CREATE / UPDATE), promueve el árbol nuevo como activo,
+    /// recarga la suscripción OPC y el mapa de comandos y, al terminar, responde el RESET a SecurOS.
+    /// Debe ejecutarse en el hilo STA de la cola OPC.
     /// </summary>
     internal class OpcTreeResetFlow
     {
@@ -67,8 +68,10 @@ namespace INTG_FIRE_PANEL_AVENAR.Flows
         {
             try
             {
-                if (!SyncTreeWithSecurOs())
-                    Console.WriteLine("[RESET]\t\tLa actualización del árbol no terminó.");
+                if (SyncTreeWithSecurOs())
+                    RespondToReset();
+                else
+                    Console.WriteLine("[RESET]\t\tLa actualización no terminó — no se responde el RESET a SecurOS.");
             }
             finally
             {
@@ -83,6 +86,7 @@ namespace INTG_FIRE_PANEL_AVENAR.Flows
             try
             {
                 Console.WriteLine("[RESET]\t\tRESET recibido — releyendo árbol OPC...");
+                
                 var refreshedPath = ExportRefreshedTree();
                 if (!HasPanels(refreshedPath))
                 {
@@ -104,6 +108,13 @@ namespace INTG_FIRE_PANEL_AVENAR.Flows
                 Console.WriteLine($"[RESET]\t\tError al procesar el RESET: {ex.Message}");
                 return false;
             }
+        }
+
+        // Último paso del RESET: envía los objetos del árbol activo (OPCTree.json), que a esta altura
+        // ya es el promovido o, si no hubo cambios, equivale al releído.
+        private void RespondToReset()
+        {
+            _securOs.SendResetResponse(OpcTreeReader.ExtractObjectDefinitionsFromTree(_exporterPath, _ddiPrefix));
         }
 
         private string ExportRefreshedTree()
